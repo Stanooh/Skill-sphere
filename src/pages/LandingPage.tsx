@@ -15,7 +15,13 @@ export function LandingPage() {
             <span className="text-lg font-bold text-ink tracking-tight">SkillSphere</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/about" className="btn-ghost hidden sm:inline-flex">About</Link>
+            <div className="hidden md:flex items-center gap-1 mr-2">
+              <Link to="/skills" className="btn-ghost text-sm">Explore Skills</Link>
+              <Link to="/mentors" className="btn-ghost text-sm">Find Mentors</Link>
+              <Link to="/workshops" className="btn-ghost text-sm">Workshops</Link>
+              <Link to="/roadmaps" className="btn-ghost text-sm">Roadmaps</Link>
+              <Link to="/about" className="btn-ghost text-sm">About</Link>
+            </div>
             <Link to="/login"><Button variant="secondary" size="sm">Sign In</Button></Link>
             <Link to="/register"><Button size="sm">Get Started</Button></Link>
           </div>
