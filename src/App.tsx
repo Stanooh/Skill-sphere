@@ -7,6 +7,10 @@ import { LandingPage } from '@/pages/LandingPage';
 import { AboutPage } from '@/pages/AboutPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { PublicMentorsPage } from '@/pages/PublicMentorsPage';
+import { PublicWorkshopsPage } from '@/pages/PublicWorkshopsPage';
+import { PublicSkillsPage } from '@/pages/PublicSkillsPage';
+import { PublicRoadmapsPage } from '@/pages/PublicRoadmapsPage';
 
 import { LearnerDashboard } from '@/pages/learner/LearnerDashboard';
 import { LearnerProfilePage } from '@/pages/learner/LearnerProfile';
@@ -60,6 +64,10 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/mentors" element={<PublicMentorsPage />} />
+      <Route path="/workshops" element={<PublicWorkshopsPage />} />
+      <Route path="/skills" element={<PublicSkillsPage />} />
+      <Route path="/roadmaps" element={<PublicRoadmapsPage />} />
       <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
       <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
 
