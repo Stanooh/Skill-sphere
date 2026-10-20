@@ -1,5 +1,8 @@
+'use client';
+
 import { type ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   UserCircle,
@@ -70,8 +73,8 @@ function getNavItems(role: string): NavItem[] {
 
 export function DashboardLayout({ children, title }: { children: ReactNode; title?: string }) {
   const { user, logout } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -84,7 +87,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    router.push('/login');
   };
 
   const handleNotifClick = () => {
