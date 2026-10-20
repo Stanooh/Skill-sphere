@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { X, Plus, Check } from 'lucide-react';
 import type { Skill, SkillLevel } from '@/types';

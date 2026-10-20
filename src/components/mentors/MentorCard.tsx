@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+'use client';
+
+import Link from 'next/link';
 import { Star, MapPin, Bookmark, Calendar } from 'lucide-react';
 import type { Mentor, MentorRecommendation } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
@@ -23,7 +25,7 @@ export function MentorCard({
       <div className="flex items-start gap-3 mb-4">
         <Avatar src={mentor.user.avatar} name={mentor.user.name} size="lg" />
         <div className="flex-1 min-w-0">
-          <Link to={`/learner/mentors/${mentor.user.id}`} className="hover:text-brand-700">
+          <Link href={`/learner/mentors/${mentor.user.id}`} className="hover:text-brand-700">
             <h3 className="font-semibold text-ink truncate">{mentor.user.name}</h3>
           </Link>
           <p className="text-sm text-ink-400 truncate">{mentor.profile.professionalTitle}</p>
@@ -67,7 +69,7 @@ export function MentorCard({
       </div>
 
       <div className="flex items-center gap-2 mt-auto">
-        <Link to={`/learner/mentors/${mentor.user.id}`} className="flex-1">
+        <Link href={`/learner/mentors/${mentor.user.id}`} className="flex-1">
           <Button variant="secondary" fullWidth>View Profile</Button>
         </Link>
         {onSaveToggle && (

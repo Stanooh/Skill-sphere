@@ -1,3 +1,5 @@
+'use client';
+
 import { Check, Circle, Clock } from 'lucide-react';
 import type { Roadmap, RoadmapMilestone } from '@/types';
 import { ProgressBar } from '@/components/ui';

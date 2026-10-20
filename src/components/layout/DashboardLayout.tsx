@@ -82,7 +82,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
   const roleLabel = user?.role === 'learner' ? 'Learner' : user?.role === 'mentor' ? 'Mentor' : 'Admin';
   const roleBase = user?.role === 'learner' ? '/learner' : user?.role === 'mentor' ? '/mentor' : '/admin';
 
-  const notifications = useMemo(() => (user ? getNotifications(user.id) : []), [user, location.pathname]);
+  const notifications = useMemo(() => (user ? getNotifications(user.id) : []), [user, pathname]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleLogout = () => {
@@ -106,7 +106,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
         }`}
       >
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-ink-100">
-          <Link to="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
@@ -118,11 +118,11 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
           <p className="px-3 mb-2 text-xs font-semibold text-ink-300 uppercase tracking-wider">{roleLabel} Menu</p>
           <div className="flex flex-col gap-0.5">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.to;
+              const isActive = pathname === item.to;
               return (
                 <Link
                   key={item.to}
-                  to={item.to}
+                  href={item.to}
                   onClick={() => setMobileOpen(false)}
                   className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
                 >
@@ -202,7 +202,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
               )}
             </div>
             <Link
-              to={`${roleBase}/profile`}
+              href={`${roleBase}/profile`}
               className="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-ink-50"
             >
               <Avatar src={user?.avatar} name={user?.name ?? ''} size="sm" />
@@ -231,16 +231,16 @@ export function PageHeader({ title, description, action }: { title: string; desc
 
 export function RoleGuard({ role, children }: { role: 'learner' | 'mentor' | 'admin'; children: ReactNode }) {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   if (!user) {
-    navigate('/login');
+    router.push('/login');
     return null;
   }
 
   if (user.role !== role) {
     const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
-    navigate(base);
+    router.push(base);
     return null;
   }
 

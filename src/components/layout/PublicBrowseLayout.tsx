@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -16,7 +16,7 @@ export function PublicBrowseLayout({
     <div className="min-h-screen bg-white">
       <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-ink-100">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
@@ -24,14 +24,14 @@ export function PublicBrowseLayout({
           </Link>
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-1 mr-2">
-              <Link to="/skills" className="btn-ghost text-sm">Explore Skills</Link>
-              <Link to="/mentors" className="btn-ghost text-sm">Find Mentors</Link>
-              <Link to="/workshops" className="btn-ghost text-sm">Workshops</Link>
-              <Link to="/roadmaps" className="btn-ghost text-sm">Roadmaps</Link>
-              <Link to="/about" className="btn-ghost text-sm">About</Link>
+              <Link href="/skills" className="btn-ghost text-sm">Explore Skills</Link>
+              <Link href="/mentors" className="btn-ghost text-sm">Find Mentors</Link>
+              <Link href="/workshops" className="btn-ghost text-sm">Workshops</Link>
+              <Link href="/roadmaps" className="btn-ghost text-sm">Roadmaps</Link>
+              <Link href="/about" className="btn-ghost text-sm">About</Link>
             </div>
-            <Link to="/login"><Button variant="secondary" size="sm">Sign In</Button></Link>
-            <Link to="/register"><Button size="sm">Get Started</Button></Link>
+            <Link href="/login"><Button variant="secondary" size="sm">Sign In</Button></Link>
+            <Link href="/register"><Button size="sm">Get Started</Button></Link>
           </div>
         </div>
       </nav>

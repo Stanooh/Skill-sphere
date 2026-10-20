@@ -1,3 +1,5 @@
+'use client';
+
 import { type ReactNode } from 'react';
 
 export function ProgressBar({ value, className = '', label }: { value: number; className?: string; label?: string }) {
