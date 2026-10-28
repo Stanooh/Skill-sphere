@@ -42,7 +42,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-ink-700 flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-ink-800 flex-col justify-between p-12">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
             <GraduationCap className="w-5 h-5 text-white" />
@@ -53,7 +53,7 @@ export function LoginPage() {
           <h1 className="text-3xl font-bold text-white mb-4 max-w-md">
             Learn from mentors who match your skills and goals.
           </h1>
-          <p className="text-ink-200 max-w-md">
+          <p className="text-ink-400 max-w-md">
             Sign in to access your dashboard, mentor recommendations, sessions, and personalized learning roadmap.
           </p>
         </div>

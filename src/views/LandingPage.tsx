@@ -138,10 +138,10 @@ export function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-ink-700 py-20">
+      <section className="bg-ink-800 py-20">
         <div className="max-w-4xl mx-auto px-4 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Ready to start your learning journey?</h2>
-          <p className="text-ink-200 mb-8 max-w-xl mx-auto">
+          <p className="text-ink-400 mb-8 max-w-xl mx-auto">
             Join SkillSphere today and connect with mentors who can help you reach your goals.
           </p>
           <Link href="/register">
@@ -157,7 +157,7 @@ export function LandingPage() {
             <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
               <GraduationCap className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm font-semibold text-ink-200">SkillSphere</span>
+            <span className="text-sm font-semibold text-ink-400">SkillSphere</span>
           </div>
           <p className="text-sm text-ink-400">Skill-sharing, mentorship, and personalized learning.</p>
         </div>

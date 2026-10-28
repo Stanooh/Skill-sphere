@@ -49,7 +49,7 @@ export function PublicBrowseLayout({
             <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
               <GraduationCap className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm font-semibold text-ink-200">SkillSphere</span>
+            <span className="text-sm font-semibold text-ink-400">SkillSphere</span>
           </div>
           <p className="text-sm text-ink-400">Skill-sharing, mentorship, and personalized learning.</p>
         </div>

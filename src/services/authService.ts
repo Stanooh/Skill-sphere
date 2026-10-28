@@ -13,12 +13,13 @@ export function login(email: string, _password: string): User | null {
 
 export function register(name: string, email: string, role: UserRole): User | null {
   const db = getDb();
+  const safeRole: Exclude<UserRole, 'admin'> = role === 'mentor' ? 'mentor' : 'learner';
   if (db.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
     return null;
   }
   const newUser: User = {
-    id: `user-${role}-${Date.now()}`,
-    role,
+    id: `user-${safeRole}-${Date.now()}`,
+    role: safeRole,
     name,
     email,
     avatar: `https://i.pravatar.cc/150?u=${email}`,

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GraduationCap, AlertCircle, Compass, Shield, GraduationCap as LearnerIcon } from 'lucide-react';
+import { GraduationCap, AlertCircle, Compass, GraduationCap as LearnerIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Input } from '@/components/ui/Input';
@@ -37,15 +37,14 @@ export function RegisterPage() {
     router.push(base);
   };
 
-  const roles: { value: UserRole; label: string; icon: typeof LearnerIcon; desc: string }[] = [
+  const roles: { value: Exclude<UserRole, 'admin'>; label: string; icon: typeof LearnerIcon; desc: string }[] = [
     { value: 'learner', label: 'Learner', icon: LearnerIcon, desc: 'Find mentors and learn skills' },
     { value: 'mentor', label: 'Mentor', icon: Compass, desc: 'Guide learners and host workshops' },
-    { value: 'admin', label: 'Admin', icon: Shield, desc: 'Manage the platform' },
   ];
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-ink-700 flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-ink-800 flex-col justify-between p-12">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
             <GraduationCap className="w-5 h-5 text-white" />
@@ -56,7 +55,7 @@ export function RegisterPage() {
           <h1 className="text-3xl font-bold text-white mb-4 max-w-md">
             Join SkillSphere and start your learning journey.
           </h1>
-          <p className="text-ink-200 max-w-md">
+          <p className="text-ink-400 max-w-md">
             Create a profile, get matched with mentors, and follow a personalized roadmap to your goals.
           </p>
         </div>
@@ -85,7 +84,7 @@ export function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label">I want to join as a</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {roles.map((r) => (
                   <button
                     key={r.value}
