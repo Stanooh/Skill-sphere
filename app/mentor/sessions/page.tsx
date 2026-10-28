@@ -1,10 +1,10 @@
 import { MentorSessionsPage } from '@/views/mentor/MentorSessions';
-import { ProtectedRoute } from '@/components/guards/RouteGuards';
+import { MentorAccessGuard } from '@/components/guards/MentorAccessGuard';
 
 export default function Page() {
   return (
-    <ProtectedRoute role="mentor">
+    <MentorAccessGuard>
       <MentorSessionsPage />
-    </ProtectedRoute>
+    </MentorAccessGuard>
   );
 }

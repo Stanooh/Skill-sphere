@@ -39,10 +39,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="flex items-start gap-3 rounded-xl bg-white border border-ink-100 shadow-card-hover px-4 py-3.5 animate-in slide-in-from-bottom-2"
+            className="flex items-start gap-3 rounded-xl bg-ink-800 border border-ink-200 shadow-card-hover px-4 py-3.5 animate-in slide-in-from-bottom-2"
           >
-            {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />}
-            {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />}
+            {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />}
+            {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />}
             {toast.type === 'info' && <Info className="w-5 h-5 text-brand shrink-0 mt-0.5" />}
             <p className="text-sm text-ink-700 flex-1">{toast.message}</p>
             <button onClick={() => remove(toast.id)} className="text-ink-300 hover:text-ink-500 shrink-0">

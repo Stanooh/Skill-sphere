@@ -6,7 +6,7 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
-      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-ink-100">
+      <nav className="sticky top-0 z-30 bg-ink-800/90 backdrop-blur border-b border-ink-200">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
@@ -31,7 +31,7 @@ export function LandingPage() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-4 lg:px-8 pt-16 lg:pt-24 pb-16">
         <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 text-brand-700 text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-900 text-brand-200 text-sm font-medium mb-6">
             <Compass className="w-4 h-4" />
             Skill-sharing & mentorship platform
           </div>
@@ -76,7 +76,7 @@ export function LandingPage() {
               { icon: <TrendingUp className="w-6 h-6" />, step: '03', title: 'Follow your roadmap', desc: 'Track milestones, attend workshops, and book sessions — all mapped to your personal learning journey.' },
             ].map((item) => (
               <div key={item.step} className="card p-6">
-                <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand flex items-center justify-center mb-4">
+                <div className="w-12 h-12 rounded-xl bg-brand-900 text-brand-300 flex items-center justify-center mb-4">
                   {item.icon}
                 </div>
                 <p className="text-xs font-semibold text-brand mb-2">STEP {item.step}</p>
@@ -105,10 +105,10 @@ export function LandingPage() {
                 'Transparent match percentages you can trust',
               ].map((point) => (
                 <div key={point} className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-brand-900 flex items-center justify-center shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5 text-brand" />
                   </div>
-                  <span className="text-sm text-ink-600">{point}</span>
+                  <span className="text-sm text-ink-400">{point}</span>
                 </div>
               ))}
             </div>
@@ -127,10 +127,10 @@ export function LandingPage() {
             </div>
             <div className="flex flex-wrap gap-1.5 mb-4">
               {['React', 'JavaScript', 'Next.js', 'TypeScript'].map((s) => (
-                <span key={s} className="badge bg-brand-50 text-brand-700">{s}</span>
+                <span key={s} className="badge bg-brand-900 text-brand-200">{s}</span>
               ))}
             </div>
-            <div className="flex items-center gap-2 text-sm text-green-700">
+            <div className="flex items-center gap-2 text-sm text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-green-500" /> Available this week
             </div>
           </div>

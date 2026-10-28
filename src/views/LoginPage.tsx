@@ -17,21 +17,30 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
     }
-    const user = login(email, password);
-    if (!user) {
-      setError('No account found with that email. Try a demo account below.');
-      return;
+    setSubmitting(true);
+    try {
+      const user = await login(email, password);
+      if (!user) {
+        setError('No account found with that email. Try a demo account below.');
+        setSubmitting(false);
+        return;
+      }
+      show(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
+      const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
+      router.push(base);
+    } catch {
+      setError('Sign in failed. Please try again.');
+      setSubmitting(false);
     }
-    show(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
-    const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
-    router.push(base);
   };
 
   const fillDemo = (demoEmail: string) => {
@@ -74,9 +83,9 @@ export function LoginPage() {
           <p className="text-sm text-ink-400 mb-6">Welcome back. Enter your credentials to continue.</p>
 
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-100 mb-4">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/50 border border-red-900 mb-4">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300">{error}</p>
             </div>
           )}
 
@@ -125,7 +134,7 @@ export function LoginPage() {
 
           <p className="text-sm text-ink-400 mt-6 text-center">
             Don't have an account?{' '}
-            <Link href="/register" className="text-brand font-medium hover:text-brand-700">Sign up</Link>
+            <Link href="/register" className="text-brand-400 font-medium hover:text-brand-300">Sign up</Link>
           </p>
         </div>
       </div>

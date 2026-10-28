@@ -20,26 +20,35 @@ export function RegisterPage() {
   const [role, setRole] = useState<UserRole>('learner');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     if (!name || !email || !password) {
       setError('Please fill in all fields.');
       return;
     }
-    const user = register(name, email, role);
-    if (!user) {
-      setError('An account with that email already exists.');
-      return;
+    setSubmitting(true);
+    try {
+      const user = await register(name, email, role, password);
+      if (!user) {
+        setError('An account with that email already exists.');
+        setSubmitting(false);
+        return;
+      }
+      show(`Account created. Welcome, ${user.name.split(' ')[0]}!`, 'success');
+      const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
+      router.push(base);
+    } catch {
+      setError('Registration failed. Please try again.');
+      setSubmitting(false);
     }
-    show(`Account created. Welcome, ${user.name.split(' ')[0]}!`, 'success');
-    const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
-    router.push(base);
   };
 
   const roles: { value: Exclude<UserRole, 'admin'>; label: string; icon: typeof LearnerIcon; desc: string }[] = [
     { value: 'learner', label: 'Learner', icon: LearnerIcon, desc: 'Find mentors and learn skills' },
-    { value: 'mentor', label: 'Mentor', icon: Compass, desc: 'Guide learners and host workshops' },
+    { value: 'mentor', label: 'Mentor', icon: Compass, desc: 'Apply and get verified to guide learners' },
   ];
 
   return (
@@ -75,9 +84,9 @@ export function RegisterPage() {
           <p className="text-sm text-ink-400 mb-6">Choose your role and get started in seconds.</p>
 
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-100 mb-4">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/50 border border-red-900 mb-4">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300">{error}</p>
             </div>
           )}
 
@@ -92,7 +101,7 @@ export function RegisterPage() {
                     onClick={() => setRole(r.value)}
                     className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all ${
                       role === r.value
-                        ? 'border-brand bg-brand-50 text-brand-700'
+                        ? 'border-brand bg-brand-50 text-brand-300'
                         : 'border-ink-200 text-ink-500 hover:border-ink-300'
                     }`}
                   >
@@ -112,7 +121,7 @@ export function RegisterPage() {
 
           <p className="text-sm text-ink-400 mt-6 text-center">
             Already have an account?{' '}
-            <Link href="/login" className="text-brand font-medium hover:text-brand-700">Sign in</Link>
+            <Link href="/login" className="text-brand-400 font-medium hover:text-brand-300">Sign in</Link>
           </p>
         </div>
       </div>

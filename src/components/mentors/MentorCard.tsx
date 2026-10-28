@@ -26,7 +26,7 @@ export function MentorCard({
       <div className="flex items-start gap-3 mb-4">
         <Avatar src={mentor.user.avatar} name={mentor.user.name} size="lg" />
         <div className="flex-1 min-w-0">
-          <Link href={`/learner/mentors/${mentor.user.id}`} className="hover:text-brand-700">
+          <Link href={`/learner/mentors/${mentor.user.id}`} className="hover:text-brand-300">
             <h3 className="font-semibold text-ink truncate">{mentor.user.name}</h3>
           </Link>
           <p className="text-sm text-ink-400 truncate">{mentor.profile.professionalTitle}</p>
@@ -85,7 +85,7 @@ export function MentorCard({
 }
 
 export function MentorMatchBadge({ percentage }: { percentage: number }) {
-  const color = percentage >= 80 ? 'bg-brand text-white' : percentage >= 50 ? 'bg-brand-50 text-brand-700' : 'bg-ink-100 text-ink-600';
+  const color = percentage >= 80 ? 'bg-brand text-white' : percentage >= 50 ? 'bg-brand-900 text-brand-200' : 'bg-ink-100 text-ink-600';
   return (
     <span className={`badge ${color} font-semibold`}>
       {percentage}% Match

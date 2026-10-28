@@ -1,0 +1,2 @@
+[functions.mentor-verification-actions]
+verify_jwt = true

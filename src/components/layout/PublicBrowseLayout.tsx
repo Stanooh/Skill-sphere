@@ -14,7 +14,7 @@ export function PublicBrowseLayout({
 }) {
   return (
     <div className="min-h-screen bg-white">
-      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-ink-100">
+      <nav className="sticky top-0 z-30 bg-ink-800/90 backdrop-blur border-b border-ink-200">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">

@@ -31,17 +31,17 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-white rounded-2xl shadow-card-hover w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col`}>
+      <div className={`relative bg-ink-800 rounded-2xl shadow-card-hover w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden flex flex-col`}>
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-ink-100">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-ink-200">
             <h3 className="text-lg font-semibold text-ink">{title}</h3>
-            <button onClick={onClose} className="text-ink-300 hover:text-ink-500 p-1 rounded-lg hover:bg-ink-50">
+            <button onClick={onClose} className="text-ink-300 hover:text-ink-500 p-1 rounded-lg hover:bg-ink-100">
               <X className="w-5 h-5" />
             </button>
           </div>
         )}
         {!title && (
-          <button onClick={onClose} className="absolute top-4 right-4 text-ink-300 hover:text-ink-500 p-1 rounded-lg hover:bg-ink-50 z-10">
+          <button onClick={onClose} className="absolute top-4 right-4 text-ink-300 hover:text-ink-500 p-1 rounded-lg hover:bg-ink-100 z-10">
             <X className="w-5 h-5" />
           </button>
         )}

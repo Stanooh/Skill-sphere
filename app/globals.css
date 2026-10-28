@@ -82,6 +82,25 @@
 
 @layer utilities {
   .bg-white { background-color: var(--surface-deep) !important; }
+  .bg-white\/80 { background-color: rgba(8, 15, 21, 0.9) !important; }
+  .bg-white\/90 { background-color: rgba(8, 15, 21, 0.95) !important; }
+  .bg-green-50 { background-color: #052e1b !important; }
+  .bg-green-100 { background-color: #052e1b !important; }
+  .text-green-600 { color: #6ee7b7 !important; }
+  .text-green-700 { color: #6ee7b7 !important; }
+  .text-green-800 { color: #6ee7b7 !important; }
+  .bg-red-50 { background-color: #2a0a0e !important; }
+  .bg-red-100 { background-color: #2a0a0e !important; }
+  .text-red-600 { color: #fca5a5 !important; }
+  .text-red-700 { color: #fca5a5 !important; }
+  .text-red-500 { color: #f87171 !important; }
+  .hover\:bg-red-50:hover { background-color: #2a0a0e !important; }
+  .bg-amber-50 { background-color: #2a1e08 !important; }
+  .bg-amber-100 { background-color: #2a1e08 !important; }
+  .text-amber-600 { color: #fcd34d !important; }
+  .text-amber-700 { color: #fcd34d !important; }
+  .border-red-100 { border-color: #7f1d1d !important; }
+  .border-red-400 { border-color: #ef4444 !important; }
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-ink-200 rounded-full; }
   .scrollbar-thin::-webkit-scrollbar-track { @apply bg-transparent; }

@@ -32,14 +32,14 @@ export function Tabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-ink-100 overflow-x-auto scrollbar-thin">
+    <div className="flex items-center gap-1 border-b border-ink-200 overflow-x-auto scrollbar-thin">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             active === tab.id
-              ? 'border-brand text-brand-700'
+              ? 'border-brand text-brand-300'
               : 'border-transparent text-ink-400 hover:text-ink-600 hover:border-ink-200'
           }`}
         >
@@ -64,7 +64,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 px-6">
-      <div className="w-14 h-14 rounded-2xl bg-ink-50 flex items-center justify-center text-ink-300 mb-4">
+      <div className="w-14 h-14 rounded-2xl bg-ink-100 flex items-center justify-center text-ink-300 mb-4">
         {icon}
       </div>
       <h3 className="text-lg font-semibold text-ink mb-1">{title}</h3>
@@ -93,7 +93,7 @@ export function StatCard({
           <p className="text-2xl font-bold text-ink mt-1">{value}</p>
           {sublabel && <p className="text-xs text-ink-400 mt-1">{sublabel}</p>}
         </div>
-        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand">
+        <div className="w-10 h-10 rounded-lg bg-brand-900 flex items-center justify-center text-brand-300">
           {icon}
         </div>
       </div>

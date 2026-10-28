@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 export function AboutPage() {
   return (
     <div className="min-h-screen bg-white">
-      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-ink-100">
+      <nav className="sticky top-0 z-30 bg-ink-800/90 backdrop-blur border-b border-ink-200">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
@@ -38,7 +38,7 @@ export function AboutPage() {
             { icon: <Users className="w-5 h-5" />, title: 'Three Roles', desc: 'Learners, Mentors, and Admins — each with dedicated dashboards and tools.' },
           ].map((f) => (
             <div key={f.title} className="card p-6">
-              <div className="w-10 h-10 rounded-lg bg-brand-50 text-brand flex items-center justify-center mb-4">
+              <div className="w-10 h-10 rounded-lg bg-brand-900 text-brand-300 flex items-center justify-center mb-4">
                 {f.icon}
               </div>
               <h3 className="font-semibold text-ink mb-2">{f.title}</h3>
@@ -56,12 +56,12 @@ export function AboutPage() {
               { role: 'Mentor', email: 'mentor@skillsphere.demo', icon: <Compass className="w-4 h-4" /> },
               { role: 'Admin', email: 'admin@skillsphere.demo', icon: <Shield className="w-4 h-4" /> },
             ].map((acc) => (
-              <div key={acc.role} className="border border-ink-100 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-brand mb-2">
+              <div key={acc.role} className="border border-ink-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-brand-300 mb-2">
                   {acc.icon}
                   <span className="text-sm font-semibold">{acc.role}</span>
                 </div>
-                <p className="text-sm text-ink-600 font-mono">{acc.email}</p>
+                <p className="text-sm text-ink-400 font-mono">{acc.email}</p>
               </div>
             ))}
           </div>

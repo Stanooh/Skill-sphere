@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Compass, Bookmark, CalendarDays, GraduationCap, BookOpen, ArrowRight, BarChart3, Sparkles, Wand2, MessageSquare } from 'lucide-react';
+import { Compass, Bookmark, CalendarDays, GraduationCap, BookOpen, ArrowRight, BarChart3, Sparkles, Wand2, MessageSquare, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
@@ -83,6 +83,24 @@ export function LearnerDashboard() {
           </div>
           <Link href="/learner/career-advisor">
             <Button size="sm"><MessageSquare className="w-4 h-4" /> Ask Career Advisor</Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Become a mentor banner */}
+      <div className="card p-5 mb-8 border-brand-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-900 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-brand-300" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-ink">Become a Mentor</h2>
+              <p className="text-sm text-ink-400">Share your expertise. Apply to become a verified mentor.</p>
+            </div>
+          </div>
+          <Link href="/learner/apply">
+            <Button size="sm" variant="secondary"><ShieldCheck className="w-4 h-4" /> Apply Now</Button>
           </Link>
         </div>
       </div>

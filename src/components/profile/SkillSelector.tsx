@@ -68,12 +68,12 @@ export function SkillSelector({
               onClick={() => toggleSkill(skill.id)}
               className={`flex items-center justify-between px-4 py-3 rounded-lg border transition-all text-left ${
                 isSelected
-                  ? 'border-brand bg-brand-50'
+                  ? 'border-brand bg-brand-900'
                   : 'border-ink-200 hover:border-ink-300 bg-white'
               }`}
             >
               <div>
-                <span className={`text-sm font-medium ${isSelected ? 'text-brand-700' : 'text-ink'}`}>
+                <span className={`text-sm font-medium ${isSelected ? 'text-brand-300' : 'text-ink'}`}>
                   {skill.name}
                 </span>
                 <span className="text-xs text-ink-400 ml-2">{skill.category}</span>
@@ -89,7 +89,7 @@ export function SkillSelector({
       </div>
 
       {selectedIds.length > 0 && (
-        <div className="border-t border-ink-100 pt-4">
+        <div className="border-t border-ink-200 pt-4">
           <h4 className="text-sm font-semibold text-ink mb-3">Selected Skills & Levels</h4>
           <div className="space-y-2">
             {selectedIds.map((skillId) => {
@@ -111,7 +111,7 @@ export function SkillSelector({
                         className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                           selectedLevels[skillId] === level
                             ? 'bg-brand text-white'
-                            : 'bg-white text-ink-400 hover:text-ink-600 border border-ink-200'
+                            : 'bg-ink-100 text-ink-400 hover:text-ink-600 border border-ink-200'
                         }`}
                       >
                         {levelLabels[level]}

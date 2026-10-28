@@ -285,3 +285,78 @@ export interface VerificationHistoryEntry {
   timestamp: string;
   note?: string;
 }
+
+export interface MentorVerificationHistoryDB {
+  id: string;
+  application_id: string;
+  action: string;
+  actor_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+// --- Supabase-backed mentor verification workflow types ---
+
+export type MentorApplicationStatus =
+  | 'not_applied'
+  | 'pending_verification'
+  | 'verification_failed'
+  | 'pending_admin_approval'
+  | 'approved'
+  | 'rejected'
+  | 'suspended';
+
+export interface MentorApplicationEvidence {
+  type: EvidenceType;
+  title: string;
+  fileName?: string;
+  url?: string;
+  description: string;
+}
+
+export interface MentorApplicationSkill {
+  id: string;
+  applicationId: string;
+  skillId: string;
+  skillName: string;
+  evidenceData: MentorApplicationEvidence[];
+  status: 'not-submitted' | 'pending' | 'verified' | 'rejected' | 'needs-evidence';
+  feedback?: string;
+  reviewedAt?: string;
+}
+
+export interface MentorApplication {
+  id: string;
+  userId: string;
+  status: MentorApplicationStatus;
+  professionalHeadline: string;
+  biography: string;
+  location: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  identityVerified: boolean;
+  competencyVerified: boolean;
+  adminApproved: boolean;
+  rejectionReason?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  reviewedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MentorApplicationWithDetails extends MentorApplication {
+  skills: MentorApplicationSkill[];
+  history: MentorVerificationHistoryDB[];
+  applicantName?: string;
+  applicantEmail?: string;
+}
+
+export interface MentorAccessState {
+  hasAccess: boolean;
+  applicationStatus: MentorApplicationStatus;
+  application?: MentorApplication;
+  reason?: string;
+  redirectTo: string;
+}

@@ -12,8 +12,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div>
         {label && <label htmlFor={inputId} className="label">{label}</label>}
-        <input ref={ref} id={inputId} className={`input ${error ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''} ${className}`} {...props} />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        <input ref={ref} id={inputId} className={`input ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-950' : ''} ${className}`} {...props} />
+        {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
         {hint && !error && <p className="mt-1 text-sm text-ink-400">{hint}</p>}
       </div>
     );
@@ -33,7 +33,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       <div>
         {label && <label htmlFor={textareaId} className="label">{label}</label>}
         <textarea ref={ref} id={textareaId} className={`input resize-none ${className}`} {...props} />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
       </div>
     );
   }
@@ -54,7 +54,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <select ref={ref} id={selectId} className={`input ${className}`} {...props}>
           {children}
         </select>
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
       </div>
     );
   }
