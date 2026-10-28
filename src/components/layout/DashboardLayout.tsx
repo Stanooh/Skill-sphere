@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Shield,
+  ShieldCheck,
   Sparkles,
   Wand2,
 } from 'lucide-react';
@@ -53,6 +54,7 @@ const mentorNav: NavItem[] = [
   { to: '/mentor/sessions', label: 'Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },
   { to: '/mentor/workshops', label: 'My Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { to: '/mentor/profile', label: 'My Profile', icon: <UserCircle className="w-[18px] h-[18px]" /> },
+  { to: '/mentor/verification', label: 'Verification', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
 ];
 
 const adminNav: NavItem[] = [
@@ -63,6 +65,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/skills', label: 'Skills', icon: <Bookmark className="w-[18px] h-[18px]" /> },
   { to: '/admin/workshops', label: 'Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { to: '/admin/reports', label: 'Reports', icon: <BarChart3 className="w-[18px] h-[18px]" /> },
+  { to: '/admin/verification', label: 'Verification Review', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
 ];
 
 function getNavItems(role: string): NavItem[] {

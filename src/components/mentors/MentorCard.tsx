@@ -6,6 +6,7 @@ import type { Mentor, MentorRecommendation } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
 
 export function MentorCard({
   mentor,
@@ -48,6 +49,7 @@ export function MentorCard({
         )}
       </div>
 
+      <div className="mb-3"><PublicTrustIndicators mentorId={mentor.user.id} /></div>
       <div className="flex flex-wrap gap-1.5 mb-4">
         {mentor.skills.slice(0, 5).map((skill) => (
           <Badge key={skill.id} variant={matchingSkills?.some((ms) => ms.name === skill.name) ? 'brand' : 'gray'}>

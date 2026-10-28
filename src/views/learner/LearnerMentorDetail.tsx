@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
 import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Star, MapPin, Bookmark, Calendar, Award, Briefcase, GraduationCap } from 'lucide-react';
 import {
@@ -99,6 +100,7 @@ export function LearnerMentorDetailPage() {
               <div className="flex-1">
                 <h1 className="text-2xl font-bold text-ink">{mentor.user.name}</h1>
                 <p className="text-ink-400">{mentor.profile.professionalTitle}</p>
+                <div className="mt-2"><PublicTrustIndicators mentorId={mentor.user.id} limitSkills={8} /></div>
                 <div className="flex items-center gap-4 mt-2 text-sm text-ink-400">
                   <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {mentor.profile.location}</span>
                   <span className="flex items-center gap-1">

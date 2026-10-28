@@ -222,3 +222,66 @@ export interface RoadmapGenerationInput {
   hoursPerWeek: number;
   targetTimeline: string;
 }
+
+export type VerificationStatus = 'not-submitted' | 'pending' | 'needs-evidence' | 'verified' | 'rejected' | 'suspended';
+export type EvidenceType = 'certificate' | 'github' | 'portfolio' | 'experience' | 'work-sample' | 'reference' | 'assessment' | 'sample-lesson';
+export type ReviewDecision = 'approve' | 'reject' | 'request-evidence';
+
+export interface VerificationEvidence {
+  id: string;
+  type: EvidenceType;
+  title: string;
+  fileName?: string;
+  url?: string;
+  description: string;
+  submittedAt: string;
+}
+
+export interface SkillVerification {
+  id: string;
+  skillId: string;
+  status: VerificationStatus;
+  evidence: VerificationEvidence[];
+  feedback?: string;
+  reviewedAt?: string;
+  reviewerNotes?: string;
+}
+
+export interface IdentityVerification {
+  status: VerificationStatus;
+  legalName: string;
+  evidenceType?: 'passport' | 'national-id' | 'drivers-license';
+  evidence?: VerificationEvidence;
+  feedback?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewerNotes?: string;
+}
+
+export interface MentorVerificationApplication {
+  id: string;
+  mentorId: string;
+  professionalHeadline: string;
+  biography: string;
+  location: string;
+  linkedIn?: string;
+  github?: string;
+  portfolio?: string;
+  profilePhoto?: string;
+  identity: IdentityVerification;
+  skills: SkillVerification[];
+  selectedSkillIds: string[];
+  overallStatus: VerificationStatus;
+  submittedAt?: string;
+  updatedAt: string;
+  reviewerNotes?: string;
+  history: VerificationHistoryEntry[];
+}
+
+export interface VerificationHistoryEntry {
+  id: string;
+  action: string;
+  actor: string;
+  timestamp: string;
+  note?: string;
+}

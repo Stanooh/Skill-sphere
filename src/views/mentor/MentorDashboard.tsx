@@ -6,12 +6,14 @@ import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard, EmptyState } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
-import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight } from 'lucide-react';
+import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight, ShieldCheck } from 'lucide-react';
 import {
   getSessionsForMentor,
   getWorkshopsForMentor,
   getMentorProfile,
 } from '@/services/dataService';
+import { getVerificationApplication } from '@/services/verificationService';
+import { VerificationProgress, VerificationStatusBadge } from '@/components/verification/VerificationComponents';
 
 export function MentorDashboard() {
   const { user } = useAuth();
@@ -24,6 +26,7 @@ export function MentorDashboard() {
   const pendingRequests = sessions.filter((s) => s.status === 'pending');
   const acceptedSessions = sessions.filter((s) => s.status === 'accepted');
   const workshops = getWorkshopsForMentor(user.id);
+  const verification = getVerificationApplication(user.id);
 
   return (
     <DashboardLayout key={refreshKey}>
@@ -34,6 +37,17 @@ export function MentorDashboard() {
         <StatCard label="Confirmed Sessions" value={acceptedSessions.length} icon={<CalendarDays className="w-5 h-5" />} />
         <StatCard label="Active Workshops" value={workshops.filter((w) => w.status === 'upcoming').length} icon={<BookOpen className="w-5 h-5" />} />
         <StatCard label="Rating" value={profile?.rating ?? 'N/A'} icon={<Users className="w-5 h-5" />} sublabel={`${profile?.reviewCount ?? 0} reviews`} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3 mb-6">
+        <div className="card p-6 lg:col-span-2">
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="text-sm text-ink-400">Trust centre</p><h2 className="mt-1 text-lg font-semibold text-ink">Build confidence with learners</h2><p className="mt-2 max-w-xl text-sm text-ink-400">Identity and competency are reviewed separately. Choose the skills you want assessed and keep private identity evidence off your public profile.</p></div>
+            <ShieldCheck className="h-7 w-7 text-brand-800" />
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-3"><VerificationStatusBadge status={verification.identity.status} compact /><VerificationStatusBadge status={verification.skills.some((skill) => skill.status === 'verified') ? 'verified' : verification.overallStatus} compact /><Link href="/mentor/verification"><Button size="sm">Open verification centre <ArrowRight className="h-4 w-4" /></Button></Link></div>
+        </div>
+        <VerificationProgress application={verification} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">

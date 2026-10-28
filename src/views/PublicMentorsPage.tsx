@@ -7,6 +7,7 @@ import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { getAllMentors } from '@/services/dataService';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
 
 export function PublicMentorsPage() {
   const [query, setQuery] = useState('');
@@ -54,6 +55,7 @@ export function PublicMentorsPage() {
                   </div>
                 </div>
               </div>
+              <div className="mb-3"><PublicTrustIndicators mentorId={m.user.id} /></div>
               <div className="flex flex-wrap gap-1.5 mb-4">
                 {m.skills.slice(0, 5).map((s) => (
                   <Badge key={s.id} variant="gray">{s.name}</Badge>
