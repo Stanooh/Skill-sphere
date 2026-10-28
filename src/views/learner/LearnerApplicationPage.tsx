@@ -9,10 +9,8 @@ import {
   Globe2,
   Linkedin,
   Github,
-  CheckCircle2,
   Send,
   Plus,
-  X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -41,7 +39,7 @@ const evidenceTypes: { value: EvidenceType; label: string }[] = [
 ];
 
 export function LearnerApplicationPage() {
-  const { user, isSupabaseAuth } = useAuth();
+  const { user } = useAuth();
   const { show } = useToast();
   const router = useRouter();
 
@@ -63,12 +61,6 @@ export function LearnerApplicationPage() {
 
   useEffect(() => {
     if (!user) return;
-
-    if (!isSupabaseAuth) {
-      setLoading(false);
-      return;
-    }
-
     (async () => {
       const app = await getMyApplication();
       if (app) {
@@ -80,7 +72,7 @@ export function LearnerApplicationPage() {
         setGithub(app.githubUrl ?? '');
         setPortfolio(app.portfolioUrl ?? '');
 
-        if (app.status === 'approved' || app.status === 'suspended') {
+        if (app.status === 'approved') {
           router.replace('/mentor');
           return;
         }
@@ -91,7 +83,7 @@ export function LearnerApplicationPage() {
       }
       setLoading(false);
     })();
-  }, [user, isSupabaseAuth, router]);
+  }, [user, router]);
 
   if (!user) return null;
 
@@ -100,44 +92,6 @@ export function LearnerApplicationPage() {
       <DashboardLayout>
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Demo mode: show informational message
-  if (!isSupabaseAuth) {
-    return (
-      <DashboardLayout>
-        <PageHeader
-          title="Become a mentor"
-          description="Submit an application to share your expertise with the SkillSphere community."
-          action={
-            <Link href="/learner">
-              <Button variant="secondary" size="sm">
-                <ArrowLeft className="h-4 w-4" /> Back to dashboard
-              </Button>
-            </Link>
-          }
-        />
-        <div className="card p-8 max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 rounded-2xl bg-brand-900 text-brand-300 flex items-center justify-center mx-auto mb-6">
-            <FileText className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-ink mb-3">Mentor verification workflow</h2>
-          <p className="text-ink-400 leading-relaxed mb-6">
-            The secure mentor verification and approval workflow is powered by Supabase with
-            server-side enforcement. To use it, create a new account through the registration form —
-            your account will be created on Supabase with a trusted database record.
-          </p>
-          <p className="text-sm text-ink-300 mb-6">
-            Demo accounts (using mock data) bypass this workflow. New accounts created through
-            the sign-up form are subject to the full verification process: competency review,
-            admin approval, and ongoing access control.
-          </p>
-          <Link href="/register">
-            <Button size="lg">Create a new account</Button>
-          </Link>
         </div>
       </DashboardLayout>
     );

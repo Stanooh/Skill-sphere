@@ -19,7 +19,7 @@ type GuardState =
   | { phase: 'allowed' };
 
 export function MentorAccessGuard({ children }: MentorAccessGuardProps) {
-  const { user, loading, isSupabaseAuth } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [state, setState] = useState<GuardState>({ phase: 'loading' });
 
@@ -32,22 +32,6 @@ export function MentorAccessGuard({ children }: MentorAccessGuardProps) {
       return;
     }
 
-    // If using demo (localStorage) auth, fall back to the existing role check
-    // Demo mentors are pre-seeded and trusted for prototype purposes
-    if (!isSupabaseAuth) {
-      if (user.role === 'mentor') {
-        setState({ phase: 'allowed' });
-      } else if (user.role === 'admin') {
-        router.replace('/admin');
-        setState({ phase: 'redirect' });
-      } else {
-        router.replace('/learner/apply');
-        setState({ phase: 'redirect' });
-      }
-      return;
-    }
-
-    // Supabase auth: check the trusted database record
     (async () => {
       const result = await checkMentorAccess();
       if (result.hasAccess) {
@@ -59,7 +43,7 @@ export function MentorAccessGuard({ children }: MentorAccessGuardProps) {
         setState({ phase: 'denied', status: result.status, application: result.application });
       }
     })();
-  }, [user, loading, isSupabaseAuth, router]);
+  }, [user, loading, router]);
 
   if (state.phase === 'loading' || state.phase === 'redirect') {
     return (

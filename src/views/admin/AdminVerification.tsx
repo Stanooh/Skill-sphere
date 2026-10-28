@@ -20,7 +20,7 @@ import {
 } from '@/services/mentorVerificationService';
 
 export function AdminVerificationPage() {
-  const { user, isSupabaseAuth } = useAuth();
+  const { user } = useAuth();
   const { show } = useToast();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<MentorApplicationWithDetails[]>([]);
@@ -51,26 +51,6 @@ export function AdminVerificationPage() {
   const selected = applications.find((a) => a.id === selectedId) ?? filtered[0];
 
   if (!user) return null;
-
-  // Demo mode fallback
-  if (!isSupabaseAuth) {
-    return (
-      <DashboardLayout>
-        <PageHeader title="Verification review" description="Review mentor applications and approve qualified candidates." />
-        <div className="card p-8 max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 rounded-2xl bg-brand-900 text-brand-300 flex items-center justify-center mx-auto mb-6">
-            <ShieldCheck className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-ink mb-3">Server-side verification review</h2>
-          <p className="text-ink-400 leading-relaxed">
-            The admin verification review interface uses Supabase edge functions with
-            server-side authorization. Demo admin accounts can access the dashboard but
-            the verification review requires a Supabase-authenticated admin account.
-          </p>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   const handleAction = async (fn: () => Promise<{ success: boolean; error?: string }>, successMsg: string) => {
     if (!selected) return;
