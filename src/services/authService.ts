@@ -1,5 +1,5 @@
 import type { User, UserRole } from '@/types';
-import { getUserByEmail, getDb } from './dataService';
+import { getUserByEmail, getDb, saveDb } from './dataService';
 
 const SESSION_KEY = 'skillsphere_session';
 
@@ -26,6 +26,41 @@ export function register(name: string, email: string, role: UserRole): User | nu
     createdAt: new Date().toISOString(),
   };
   db.users.push(newUser);
+
+  if (safeRole === 'mentor') {
+    db.mentorProfiles.push({
+      id: `mp-${Date.now()}`,
+      userId: newUser.id,
+      professionalTitle: '',
+      bio: '',
+      location: '',
+      experienceYears: 0,
+      education: '',
+      certifications: [],
+      availability: 'available',
+      mentorshipAreas: [],
+      skillIds: [],
+      rating: 0,
+      reviewCount: 0,
+      profileComplete: false,
+    });
+  } else {
+    db.learnerProfiles.push({
+      id: `lp-${Date.now()}`,
+      userId: newUser.id,
+      bio: '',
+      location: '',
+      education: '',
+      learningGoal: '',
+      targetTimeframe: '',
+      availableHoursPerWeek: 0,
+      skillIds: [],
+      skillLevels: {},
+      profileComplete: false,
+    });
+  }
+
+  saveDb();
   const session = { userId: newUser.id };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return newUser;

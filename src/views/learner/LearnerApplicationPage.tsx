@@ -196,7 +196,7 @@ export function LearnerApplicationPage() {
         title="Become a mentor"
         description="Submit your application for competency verification and admin approval."
         action={
-          <Link href="/learner">
+          <Link href={user.role === 'mentor' ? '/mentor' : '/learner'}>
             <Button variant="secondary" size="sm">
               <ArrowLeft className="h-4 w-4" /> Back to dashboard
             </Button>

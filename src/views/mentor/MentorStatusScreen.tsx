@@ -37,7 +37,7 @@ const statusConfigs: Partial<Record<MentorApplicationStatus, StatusConfig>> = {
     description: 'The reviewer determined that your competency evidence did not meet the requirements. You can review the feedback below, update your evidence, and resubmit your application.',
     variant: 'red',
     actionLabel: 'Update evidence and resubmit',
-    actionHref: '/learner/apply',
+    actionHref: '/mentor/apply',
   },
   pending_admin_approval: {
     icon: ShieldCheck,
@@ -59,7 +59,7 @@ const statusConfigs: Partial<Record<MentorApplicationStatus, StatusConfig>> = {
     description: 'Your mentor application has been rejected. Please review the reason below. You may submit a new application after addressing the feedback.',
     variant: 'red',
     actionLabel: 'Submit a new application',
-    actionHref: '/learner/apply',
+    actionHref: '/mentor/apply',
   },
   suspended: {
     icon: ShieldAlert,
@@ -73,7 +73,7 @@ const statusConfigs: Partial<Record<MentorApplicationStatus, StatusConfig>> = {
     description: 'You have not submitted a mentor application yet. Complete the application to start the verification process.',
     variant: 'gray',
     actionLabel: 'Start application',
-    actionHref: '/learner/apply',
+    actionHref: '/mentor/apply',
   },
 };
 

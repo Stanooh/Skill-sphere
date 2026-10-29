@@ -38,7 +38,7 @@ export function RegisterPage() {
         return;
       }
       show(`Account created. Welcome, ${user.name.split(' ')[0]}!`, 'success');
-      const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
+      const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor/apply' : '/admin';
       router.push(base);
     } catch {
       setError('Registration failed. Please try again.');

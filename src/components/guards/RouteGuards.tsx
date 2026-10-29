@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { UserRole } from '@/types';
 
 function roleBase(role: UserRole): string {
-  return role === 'learner' ? '/learner' : role === 'mentor' ? '/mentor' : '/admin';
+  return role === 'learner' ? '/learner' : role === 'mentor' ? '/mentor/apply' : '/admin';
 }
 
 export function ProtectedRoute({ role, children }: { role: UserRole; children: ReactNode }) {

@@ -1,10 +1,10 @@
 import { LearnerApplicationPage } from '@/views/learner/LearnerApplicationPage';
-import { ProtectedRoute } from '@/components/guards/RouteGuards';
+import { MentorAccessGuard } from '@/components/guards/MentorAccessGuard';
 
 export default function Page() {
   return (
-    <ProtectedRoute role="learner">
+    <MentorAccessGuard allowPending>
       <LearnerApplicationPage />
-    </ProtectedRoute>
+    </MentorAccessGuard>
   );
 }

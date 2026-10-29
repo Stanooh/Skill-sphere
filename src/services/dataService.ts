@@ -76,7 +76,7 @@ function loadDb(): Database {
   return memoryDb;
 }
 
-function saveDb(): void {
+export function saveDb(): void {
   if (!memoryDb) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryDb));

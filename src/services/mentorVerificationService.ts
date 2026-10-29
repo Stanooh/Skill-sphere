@@ -425,29 +425,6 @@ export async function checkMentorAccess(): Promise<{
   const userId = getCurrentUserId();
   if (!userId) return { hasAccess: false, status: 'not_applied', application: null };
 
-  // Check role from demo db
-  let role: string | null = null;
-  try {
-    const raw = localStorage.getItem('skillsphere_db');
-    if (raw) {
-      const db = JSON.parse(raw);
-      const user = db.users?.find((u: { id: string; role: string }) => u.id === userId);
-      role = user?.role ?? null;
-    }
-  } catch {
-    // ignore
-  }
-
-  // For demo mentors (pre-seeded), grant access directly
-  if (role === 'mentor') {
-    const app = await getMyApplication();
-    if (!app) return { hasAccess: true, status: 'approved', application: null };
-    if (app.status === 'suspended') return { hasAccess: false, status: 'suspended', application: app };
-    if (app.status === 'approved' && app.competencyVerified && app.adminApproved) return { hasAccess: true, status: 'approved', application: app };
-    return { hasAccess: false, status: app.status, application: app };
-  }
-
-  // For learners, check if they have an application
   const application = await getMyApplication();
   if (!application) return { hasAccess: false, status: 'not_applied', application: null };
 

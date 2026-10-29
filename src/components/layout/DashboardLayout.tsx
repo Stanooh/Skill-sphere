@@ -12,7 +12,7 @@ import {
   GraduationCap,
   Compass,
   BarChart3,
-  Settings,
+  FileEdit,
   BookOpen,
   ClipboardList,
   Bell,
@@ -45,11 +45,11 @@ const learnerNav: NavItem[] = [
   { to: '/learner/roadmap', label: 'Learning Roadmap', icon: <GraduationCap className="w-[18px] h-[18px]" /> },
   { to: '/learner/roadmap/create', label: 'AI Roadmap Generator', icon: <Wand2 className="w-[18px] h-[18px]" /> },
   { to: '/learner/progress', label: 'My Progress', icon: <BarChart3 className="w-[18px] h-[18px]" /> },
-  { to: '/learner/apply', label: 'Become a Mentor', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
   { to: '/learner/profile', label: 'My Profile', icon: <UserCircle className="w-[18px] h-[18px]" /> },
 ];
 
 const mentorNav: NavItem[] = [
+  { to: '/mentor/apply', label: 'Mentor Application', icon: <FileEdit className="w-[18px] h-[18px]" /> },
   { to: '/mentor', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
   { to: '/mentor/requests', label: 'Mentorship Requests', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
   { to: '/mentor/sessions', label: 'Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },
