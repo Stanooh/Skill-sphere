@@ -188,6 +188,16 @@ export function getMentor(userId: string): Mentor | undefined {
   return { user, profile, skills };
 }
 
+export function isMentorProfileComplete(profile: MentorProfile): boolean {
+  return (
+    profile.profileComplete &&
+    profile.professionalTitle.trim().length > 0 &&
+    profile.bio.trim().length > 0 &&
+    profile.skillIds.length > 0 &&
+    profile.availability !== 'unavailable'
+  );
+}
+
 export function getAllMentors(): Mentor[] {
   const db = loadDb();
   return db.users
@@ -196,7 +206,8 @@ export function getAllMentors(): Mentor[] {
       const profile = db.mentorProfiles.find((p) => p.userId === user.id)!;
       const skills = db.skills.filter((s) => profile.skillIds.includes(s.id));
       return { user, profile, skills };
-    });
+    })
+    .filter((m) => isMentorProfileComplete(m.profile));
 }
 
 // --- Recommendation Engine ---
@@ -492,6 +503,19 @@ export function markAllNotificationsRead(userId: string): void {
   const db = loadDb();
   db.notifications.forEach((n) => {
     if (n.userId === userId) n.read = true;
+  });
+  saveDb();
+}
+
+export function pushNotification(userId: string, title: string, message: string): void {
+  const db = loadDb();
+  db.notifications.push({
+    id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    userId,
+    title,
+    message,
+    read: false,
+    createdAt: new Date().toISOString(),
   });
   saveDb();
 }

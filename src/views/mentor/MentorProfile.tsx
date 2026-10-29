@@ -42,6 +42,11 @@ export function MentorProfilePage() {
   const [skillLevels, setSkillLevels] = useState<Record<string, SkillLevel>>({});
 
   const handleSave = () => {
+    const complete =
+      professionalTitle.trim().length > 0 &&
+      bio.trim().length > 0 &&
+      skillIds.length > 0 &&
+      availability !== 'unavailable';
     updateMentorProfile(user.id, {
       professionalTitle,
       bio,
@@ -52,10 +57,14 @@ export function MentorProfilePage() {
       availability,
       mentorshipAreas,
       skillIds,
-      profileComplete: true,
+      profileComplete: complete,
     });
     setSaved(true);
-    show('Profile updated successfully.', 'success');
+    if (complete) {
+      show('Profile updated successfully. Your profile is now visible to learners.', 'success');
+    } else {
+      show('Profile saved. Add a title, bio, at least one skill, and set availability to appear in search.', 'info');
+    }
     setTimeout(() => setSaved(false), 2000);
   };
 

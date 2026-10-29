@@ -6,11 +6,12 @@ import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard, EmptyState } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
-import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight, ShieldCheck } from 'lucide-react';
+import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import {
   getSessionsForMentor,
   getWorkshopsForMentor,
   getMentorProfile,
+  isMentorProfileComplete,
 } from '@/services/dataService';
 import { getVerificationApplication } from '@/services/verificationService';
 import { VerificationProgress, VerificationStatusBadge } from '@/components/verification/VerificationComponents';
@@ -22,6 +23,7 @@ export function MentorDashboard() {
   if (!user) return null;
 
   const profile = getMentorProfile(user.id);
+  const profileReady = profile ? isMentorProfileComplete(profile) : false;
   const sessions = getSessionsForMentor(user.id);
   const pendingRequests = sessions.filter((s) => s.status === 'pending');
   const acceptedSessions = sessions.filter((s) => s.status === 'accepted');
@@ -31,6 +33,23 @@ export function MentorDashboard() {
   return (
     <DashboardLayout key={refreshKey}>
       <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} description="Manage your mentorship requests, sessions, and workshops." />
+
+      {!profileReady && (
+        <div className="card p-5 mb-6 border-l-4 border-amber-500 bg-amber-950/20">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-ink">Your profile is not visible to learners yet</p>
+              <p className="text-sm text-ink-400 mt-1">Complete your profile with a professional title, bio, at least one skill, and availability to appear in mentor search results.</p>
+              <Link href="/mentor/profile" className="inline-block mt-3">
+                <Button size="sm" variant="secondary">
+                  Complete your profile <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label="Pending Requests" value={pendingRequests.length} icon={<ClipboardList className="w-5 h-5" />} />

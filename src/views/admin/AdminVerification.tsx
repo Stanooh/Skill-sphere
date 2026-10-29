@@ -7,7 +7,7 @@ import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import type { MentorApplicationWithDetails } from '@/types';
+import type { MentorApplicationWithDetails, MentorProfile } from '@/types';
 import {
   adminListApplications,
   adminApproveMentor,
@@ -18,6 +18,8 @@ import {
   adminReviewSkill,
   adminRequestEvidence,
 } from '@/services/mentorVerificationService';
+import { getMentorProfile } from '@/services/dataService';
+import { GraduationCap, Award, Briefcase } from 'lucide-react';
 
 export function AdminVerificationPage() {
   const { user } = useAuth();
@@ -239,11 +241,58 @@ export function AdminVerificationPage() {
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-xs uppercase tracking-wider text-ink-300">Links</p>
-                    <p className="mt-1 text-sm text-ink-400">
-                      {[selected.linkedinUrl, selected.githubUrl, selected.portfolioUrl].filter(Boolean).join(' · ') || 'No links provided.'}
-                    </p>
+                    <div className="mt-1 flex flex-wrap gap-3 text-sm">
+                      {selected.linkedinUrl && <a href={selected.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:text-brand-300">LinkedIn</a>}
+                      {selected.githubUrl && <a href={selected.githubUrl} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:text-brand-300">GitHub</a>}
+                      {selected.portfolioUrl && <a href={selected.portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:text-brand-300">Portfolio</a>}
+                      {!selected.linkedinUrl && !selected.githubUrl && !selected.portfolioUrl && <span className="text-ink-400">No links provided.</span>}
+                    </div>
                   </div>
                 </div>
+
+                {/* Mentor profile details */}
+                {(() => {
+                  const mp = getMentorProfile(selected.userId);
+                  if (!mp) return null;
+                  return (
+                    <div className="mt-5 rounded-xl border border-ink-200 p-4">
+                      <p className="text-xs uppercase tracking-wider text-ink-300 mb-3">Mentor profile details</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="flex items-center gap-2 text-sm text-ink-400">
+                          <Briefcase className="h-4 w-4 text-brand-800" />
+                          <span>{mp.experienceYears} year{mp.experienceYears !== 1 ? 's' : ''} of experience</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm text-ink-400">
+                          <GraduationCap className="h-4 w-4 text-brand-800 mt-0.5 shrink-0" />
+                          <span>{mp.education || 'Education not provided'}</span>
+                        </div>
+                        {mp.certifications.length > 0 && (
+                          <div className="sm:col-span-2">
+                            <div className="flex items-center gap-2 text-sm text-ink-400 mb-2">
+                              <Award className="h-4 w-4 text-brand-800" />
+                              <span>Certifications</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {mp.certifications.map((cert, i) => (
+                                <Badge key={i} variant="outline">{cert}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {mp.mentorshipAreas.length > 0 && (
+                          <div className="sm:col-span-2">
+                            <p className="text-sm text-ink-400 mb-2">Mentorship areas</p>
+                            <div className="flex flex-wrap gap-2">
+                              {mp.mentorshipAreas.map((area, i) => (
+                                <Badge key={i} variant="gray">{area}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Verification status indicators */}
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -304,7 +353,12 @@ export function AdminVerificationPage() {
                 </div>
 
                 {selected.rejectionReason && (
-                  <p className="mt-3 text-sm text-red-300">Previous reason: {selected.rejectionReason}</p>
+                  <div className="mt-4 rounded-xl border border-red-800 bg-red-950/20 p-4">
+                    <p className="text-xs font-semibold text-red-300 uppercase tracking-wider mb-1">
+                      {selected.status === 'suspended' ? 'Suspension reason' : 'Previous rejection reason'}
+                    </p>
+                    <p className="text-sm text-ink-400">{selected.rejectionReason}</p>
+                  </div>
                 )}
               </div>
 

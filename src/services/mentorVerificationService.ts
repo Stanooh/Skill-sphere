@@ -6,6 +6,7 @@ import type {
   MentorApplicationWithDetails,
   MentorVerificationHistoryDB,
 } from '@/types';
+import { pushNotification } from '@/services/dataService';
 
 const APPS_KEY = 'skillsphere_mentor_applications';
 const SKILLS_KEY = 'skillsphere_mentor_app_skills';
@@ -312,6 +313,7 @@ export async function adminApproveMentor(applicationId: string): Promise<{ succe
   };
   writeJSON(APPS_KEY, rows);
   addHistory(applicationId, 'Mentor approved by admin');
+  pushNotification(rows[idx].user_id, 'Mentor application approved', 'Congratulations! Your mentor application has been approved. You now have access to the mentor dashboard.');
   return { success: true };
 }
 
@@ -330,6 +332,11 @@ export async function adminSetCompetency(applicationId: string, verified: boolea
   };
   writeJSON(APPS_KEY, rows);
   addHistory(applicationId, verified ? 'Competency verification passed' : 'Competency verification failed', reason);
+  if (!verified) {
+    pushNotification(rows[idx].user_id, 'Competency verification failed', reason ?? 'Your competency evidence did not meet the requirements. Please review the feedback and resubmit.');
+  } else {
+    pushNotification(rows[idx].user_id, 'Competency verification passed', 'Your competency verification has passed. An administrator will now review your application for final approval.');
+  }
   return { success: true };
 }
 
@@ -363,6 +370,7 @@ export async function adminRejectApplication(applicationId: string, reason: stri
   };
   writeJSON(APPS_KEY, rows);
   addHistory(applicationId, 'Application rejected', reason);
+  pushNotification(rows[idx].user_id, 'Mentor application rejected', `Your application has been rejected. Reason: ${reason}`);
   return { success: true };
 }
 
@@ -380,6 +388,7 @@ export async function adminSuspendMentor(applicationId: string, reason: string):
   };
   writeJSON(APPS_KEY, rows);
   addHistory(applicationId, 'Mentor suspended', reason);
+  pushNotification(rows[idx].user_id, 'Mentor account suspended', `Your mentor account has been suspended. Reason: ${reason}`);
   return { success: true };
 }
 
@@ -412,6 +421,7 @@ export async function adminRequestEvidence(applicationId: string, skillId: strin
   };
   writeJSON(SKILLS_KEY, rows);
   addHistory(applicationId, 'Additional evidence requested', feedback);
+  pushNotification(rows[idx].application_id, 'Additional evidence requested', `The reviewer has requested more evidence for your "${rows[idx].skill_name}" skill. Feedback: ${feedback}`);
   return { success: true };
 }
 
