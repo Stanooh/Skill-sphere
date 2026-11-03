@@ -55,10 +55,8 @@ const statusConfigs: Partial<Record<MentorApplicationStatus, StatusConfig>> = {
   rejected: {
     icon: XCircle,
     title: 'Application rejected',
-    description: 'Your mentor application has been rejected. Please review the reason below. You may submit a new application after addressing the feedback.',
+    description: "Sorry, we couldn't verify your competency for the SkillSphere mentor programme. After reviewing your application, we are unable to approve you as a mentor at this time.",
     variant: 'red',
-    actionLabel: 'Submit a new application',
-    actionHref: '/mentor/apply',
   },
   suspended: {
     icon: ShieldAlert,
@@ -87,7 +85,7 @@ export function MentorStatusScreen({
   const Icon = config.icon;
 
   return (
-    <DashboardLayout hideSidebar>
+    <DashboardLayout restricted>
       <PageHeader
         title="Mentor application status"
       />

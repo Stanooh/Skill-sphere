@@ -87,7 +87,7 @@ export function LearnerApplicationPage() {
 
   if (loading) {
     return (
-      <DashboardLayout hideSidebar>
+      <DashboardLayout restricted>
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
         </div>
@@ -189,7 +189,7 @@ export function LearnerApplicationPage() {
   };
 
   return (
-    <DashboardLayout hideSidebar>
+    <DashboardLayout restricted>
       <PageHeader
         title="Become a mentor"
         description="Submit your application for competency verification and admin approval."

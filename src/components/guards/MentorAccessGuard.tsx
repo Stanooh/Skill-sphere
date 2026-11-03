@@ -38,7 +38,7 @@ export function MentorAccessGuard({ children, allowPending = false }: MentorAcce
       if (result.hasAccess) {
         setState({ phase: 'allowed' });
       } else if (allowPending) {
-        if (result.status === 'not_applied' || result.status === 'verification_failed' || result.status === 'rejected') {
+        if (result.status === 'not_applied' || result.status === 'verification_failed') {
           setState({ phase: 'allowed' });
         } else {
           setState({ phase: 'denied', status: result.status, application: result.application });
