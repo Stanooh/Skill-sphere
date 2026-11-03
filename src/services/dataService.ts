@@ -111,6 +111,15 @@ export function getUsersByRole(role: UserRole): User[] {
   return loadDb().users.filter((u) => u.role === role);
 }
 
+export function setUserRole(userId: string, role: UserRole): void {
+  const db = loadDb();
+  const user = db.users.find((u) => u.id === userId);
+  if (user && user.role !== 'admin') {
+    user.role = role;
+    saveDb();
+  }
+}
+
 // --- Skills ---
 export function getSkills(): Skill[] {
   return loadDb().skills;

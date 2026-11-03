@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   FileEdit,
-  ArrowLeft,
 } from 'lucide-react';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
@@ -88,16 +87,9 @@ export function MentorStatusScreen({
   const Icon = config.icon;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout hideSidebar>
       <PageHeader
         title="Mentor application status"
-        action={
-          <Link href="/learner">
-            <Button variant="secondary" size="sm">
-              <ArrowLeft className="h-4 w-4" /> Back to learner dashboard
-            </Button>
-          </Link>
-        }
       />
 
       <div className="max-w-2xl mx-auto">

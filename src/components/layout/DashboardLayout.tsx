@@ -75,7 +75,7 @@ function getNavItems(role: string): NavItem[] {
   return adminNav;
 }
 
-export function DashboardLayout({ children, title }: { children: ReactNode; title?: string }) {
+export function DashboardLayout({ children, title, hideSidebar = false }: { children: ReactNode; title?: string; hideSidebar?: boolean }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -104,6 +104,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
   return (
     <div className="min-h-screen bg-ink-50 flex">
       {/* Sidebar */}
+      {!hideSidebar && (
       <aside
         className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-ink-800 border-r border-ink-200 flex flex-col z-40 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -153,9 +154,10 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
           </button>
         </div>
       </aside>
+      )}
 
       {/* Mobile overlay */}
-      {mobileOpen && (
+      {!hideSidebar && mobileOpen && (
         <div className="fixed inset-0 bg-ink-900/30 z-30 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
@@ -164,13 +166,21 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
         {/* Top bar */}
         <header className="sticky top-0 z-20 bg-ink-800 border-b border-ink-200 px-4 lg:px-8 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {!hideSidebar && (
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden p-2 rounded-lg hover:bg-ink-100 text-ink-400"
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            {title && <h1 className="text-lg font-semibold text-ink hidden sm:block">{title}</h1>}
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
+                <GraduationCap className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-bold text-ink">SkillSphere</span>
+            </div>
+            {title && <h1 className="text-lg font-semibold text-ink hidden sm:block ml-2">{title}</h1>}
           </div>
 
           <div className="flex items-center gap-2">
@@ -206,6 +216,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
                 </div>
               )}
             </div>
+            {!hideSidebar && (
             <Link
               href={`${roleBase}/profile`}
               className="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-ink-100"
@@ -213,6 +224,7 @@ export function DashboardLayout({ children, title }: { children: ReactNode; titl
               <Avatar src={user?.avatar} name={user?.name ?? ''} size="sm" />
               <span className="text-sm font-medium text-ink hidden sm:block">{user?.name?.split(' ')[0]}</span>
             </Link>
+            )}
           </div>
         </header>
 

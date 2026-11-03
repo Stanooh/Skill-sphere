@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   FileText,
   Globe2,
   Linkedin,
@@ -89,7 +87,7 @@ export function LearnerApplicationPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout hideSidebar>
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
         </div>
@@ -191,17 +189,10 @@ export function LearnerApplicationPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout hideSidebar>
       <PageHeader
         title="Become a mentor"
         description="Submit your application for competency verification and admin approval."
-        action={
-          <Link href={user.role === 'mentor' ? '/mentor' : '/learner'}>
-            <Button variant="secondary" size="sm">
-              <ArrowLeft className="h-4 w-4" /> Back to dashboard
-            </Button>
-          </Link>
-        }
       />
 
       <div className="max-w-4xl mx-auto space-y-6">

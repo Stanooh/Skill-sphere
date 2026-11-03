@@ -6,7 +6,7 @@ import type {
   MentorApplicationWithDetails,
   MentorVerificationHistoryDB,
 } from '@/types';
-import { pushNotification } from '@/services/dataService';
+import { pushNotification, setUserRole, getMentorProfile, getDb, saveDb } from '@/services/dataService';
 
 const APPS_KEY = 'skillsphere_mentor_applications';
 const SKILLS_KEY = 'skillsphere_mentor_app_skills';
@@ -312,6 +312,27 @@ export async function adminApproveMentor(applicationId: string): Promise<{ succe
     updated_at: now,
   };
   writeJSON(APPS_KEY, rows);
+  setUserRole(rows[idx].user_id, 'mentor');
+  if (!getMentorProfile(rows[idx].user_id)) {
+    const db = getDb();
+    db.mentorProfiles.push({
+      id: `mp-${Date.now()}`,
+      userId: rows[idx].user_id,
+      professionalTitle: rows[idx].professional_headline,
+      bio: rows[idx].biography,
+      location: rows[idx].location,
+      experienceYears: 0,
+      education: '',
+      certifications: [],
+      availability: 'available',
+      mentorshipAreas: [],
+      skillIds: [],
+      rating: 0,
+      reviewCount: 0,
+      profileComplete: false,
+    });
+    saveDb();
+  }
   addHistory(applicationId, 'Mentor approved by admin');
   pushNotification(rows[idx].user_id, 'Mentor application approved', 'Congratulations! Your mentor application has been approved. You now have access to the mentor dashboard.');
   return { success: true };
@@ -387,6 +408,7 @@ export async function adminSuspendMentor(applicationId: string, reason: string):
     updated_at: now,
   };
   writeJSON(APPS_KEY, rows);
+  setUserRole(rows[idx].user_id, 'learner');
   addHistory(applicationId, 'Mentor suspended', reason);
   pushNotification(rows[idx].user_id, 'Mentor account suspended', `Your mentor account has been suspended. Reason: ${reason}`);
   return { success: true };
