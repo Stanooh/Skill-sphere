@@ -211,6 +211,10 @@ export async function submitApplication(applicationId: string): Promise<boolean>
   rows[idx] = {
     ...rows[idx],
     status: 'pending_verification',
+    identity_verified: false,
+    competency_verified: false,
+    admin_approved: false,
+    rejection_reason: null,
     submitted_at: now,
     updated_at: now,
   };
@@ -458,7 +462,14 @@ export async function checkMentorAccess(): Promise<{
   if (!userId) return { hasAccess: false, status: 'not_applied', application: null };
 
   const application = await getMyApplication();
-  if (!application) return { hasAccess: false, status: 'not_applied', application: null };
+
+  if (!application) {
+    const dbUser = getDb().users.find((u) => u.id === userId);
+    if (dbUser && dbUser.role === 'mentor') {
+      return { hasAccess: true, status: 'approved', application: null };
+    }
+    return { hasAccess: false, status: 'not_applied', application: null };
+  }
 
   if (application.status === 'suspended') return { hasAccess: false, status: 'suspended', application };
   if (application.status === 'approved' && application.competencyVerified && application.adminApproved) {
