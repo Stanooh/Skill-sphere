@@ -216,6 +216,15 @@ export function DashboardLayout({ children, title, hideSidebar = false }: { chil
                 </div>
               )}
             </div>
+            {hideSidebar && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-950 hover:text-red-300 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:block">Sign Out</span>
+              </button>
+            )}
             {!hideSidebar && (
             <Link
               href={`${roleBase}/profile`}
