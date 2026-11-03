@@ -6,7 +6,7 @@ import type {
   MentorApplicationWithDetails,
   MentorVerificationHistoryDB,
 } from '@/types';
-import { pushNotification, setUserRole, getMentorProfile, getDb, saveDb } from '@/services/dataService';
+import { pushNotification, setUserRole, getMentorProfile, getDb, saveDb, updateMentorProfile } from '@/services/dataService';
 
 const APPS_KEY = 'skillsphere_mentor_applications';
 const SKILLS_KEY = 'skillsphere_mentor_app_skills';
@@ -412,7 +412,7 @@ export async function adminSuspendMentor(applicationId: string, reason: string):
     updated_at: now,
   };
   writeJSON(APPS_KEY, rows);
-  setUserRole(rows[idx].user_id, 'learner');
+  updateMentorProfile(rows[idx].user_id, { profileComplete: false });
   addHistory(applicationId, 'Mentor suspended', reason);
   pushNotification(rows[idx].user_id, 'Mentor account suspended', `Your mentor account has been suspended. Reason: ${reason}`);
   return { success: true };
