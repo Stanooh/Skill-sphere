@@ -28,7 +28,7 @@ export function AdminWorkshopsPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       {skill && <Badge variant="brand">{skill.name}</Badge>}
-                      <Badge variant={w.status === 'upcoming' ? 'green' : 'gray'}>{w.status}</Badge>
+                      <Badge variant={w.status === 'published' ? 'green' : 'gray'}>{w.status}</Badge>
                     </div>
                     <h3 className="font-semibold text-ink mb-1">{w.title}</h3>
                     <p className="text-sm text-ink-400 mb-3">{w.description}</p>

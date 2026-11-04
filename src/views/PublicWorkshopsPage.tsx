@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
 export function PublicWorkshopsPage() {
-  const workshops = getWorkshops();
+  const workshops = getWorkshops().filter((w) => w.status === 'published' || w.status === 'completed');
 
   return (
     <PublicBrowseLayout
@@ -21,7 +21,7 @@ export function PublicWorkshopsPage() {
             <div key={w.id} className="card p-5 flex flex-col">
               <div className="flex items-center gap-2 mb-3">
                 {skill && <Badge variant="brand">{skill.name}</Badge>}
-                {w.status === 'upcoming' && <Badge variant="green">Upcoming</Badge>}
+                {w.status === 'published' && <Badge variant="green">Upcoming</Badge>}
                 {w.status === 'completed' && <Badge variant="gray">Completed</Badge>}
               </div>
               <h3 className="font-semibold text-ink mb-2">{w.title}</h3>

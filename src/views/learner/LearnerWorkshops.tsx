@@ -7,7 +7,7 @@ import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout
 import { WorkshopCard } from '@/components/workshops/WorkshopCard';
 import { Tabs, EmptyState } from '@/components/ui';
 import { BookOpen } from 'lucide-react';
-import { getWorkshops, registerForWorkshop, unregisterFromWorkshop } from '@/services/dataService';
+import { getLearnerWorkshops, leaveLearnerWorkshop, registerLearnerForWorkshop } from '@/services/workshopService';
 
 export function LearnerWorkshopsPage() {
   const { user } = useAuth();
@@ -17,24 +17,26 @@ export function LearnerWorkshopsPage() {
 
   if (!user) return null;
 
-  const workshops = getWorkshops();
+  const workshops = getLearnerWorkshops();
   const registered = workshops.filter((w) => w.registeredLearnerIds.includes(user.id));
-  const upcoming = workshops.filter((w) => w.status === 'upcoming');
+  const upcoming = workshops.filter((w) => w.status === 'published');
   const completed = workshops.filter((w) => w.status === 'completed');
 
   const displayed = tab === 'upcoming' ? upcoming : tab === 'registered' ? registered : completed;
 
   const handleRegisterToggle = (workshopId: string) => {
-    const workshop = workshops.find((w) => w.id === workshopId);
-    if (!workshop) return;
-    if (workshop.registeredLearnerIds.includes(user.id)) {
-      unregisterFromWorkshop(workshopId, user.id);
-      show('Unregistered from workshop.', 'info');
-    } else {
-      registerForWorkshop(workshopId, user.id);
-      show('Registered for workshop!', 'success');
+    try {
+      if (workshops.find((w) => w.id === workshopId)?.registeredLearnerIds.includes(user.id)) {
+        leaveLearnerWorkshop(user.id, workshopId);
+        show('Unregistered from workshop.', 'info');
+      } else {
+        registerLearnerForWorkshop(user.id, workshopId);
+        show('Registered for workshop!', 'success');
+      }
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      show(err instanceof Error ? err.message : 'Could not update your registration.', 'error');
     }
-    setRefreshKey((k) => k + 1);
   };
 
   return (

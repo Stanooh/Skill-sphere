@@ -89,7 +89,7 @@ export function AdminDashboard() {
       <div className="mt-6">
         <h2 className="text-lg font-semibold text-ink mb-4">Upcoming Workshops</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {workshops.filter((w) => w.status === 'upcoming').slice(0, 3).map((w) => {
+          {workshops.filter((w) => w.status === 'published').slice(0, 3).map((w) => {
             const mentor = mentors.find((m) => m.user.id === w.mentorId);
             return (
               <div key={w.id} className="card p-5">

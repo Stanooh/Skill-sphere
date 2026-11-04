@@ -51,7 +51,7 @@ export function MentorDashboard() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label="Pending Requests" value={pendingRequests.length} icon={<ClipboardList className="w-5 h-5" />} />
         <StatCard label="Confirmed Sessions" value={acceptedSessions.length} icon={<CalendarDays className="w-5 h-5" />} />
-        <StatCard label="Active Workshops" value={workshops.filter((w) => w.status === 'upcoming').length} icon={<BookOpen className="w-5 h-5" />} />
+        <StatCard label="Active Workshops" value={workshops.filter((w) => w.status === 'published').length} icon={<BookOpen className="w-5 h-5" />} />
         <StatCard label="Rating" value={profile?.rating ?? 'N/A'} icon={<Users className="w-5 h-5" />} sublabel={`${profile?.reviewCount ?? 0} reviews`} />
       </div>
 

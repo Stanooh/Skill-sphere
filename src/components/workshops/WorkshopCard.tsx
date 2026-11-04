@@ -27,7 +27,7 @@ export function WorkshopCard({
     <div className="card p-5 hover:shadow-card-hover transition-shadow flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         {skill && <Badge variant="brand">{skill.name}</Badge>}
-        {workshop.status === 'upcoming' && <Badge variant="green">Upcoming</Badge>}
+        {workshop.status === 'published' && <Badge variant="green">Upcoming</Badge>}
         {workshop.status === 'completed' && <Badge variant="gray">Completed</Badge>}
       </div>
 
@@ -72,7 +72,7 @@ export function WorkshopCard({
           )}
         </div>
       )}
-      {spotsLeft <= 3 && spotsLeft > 0 && workshop.status === 'upcoming' && (
+      {spotsLeft <= 3 && spotsLeft > 0 && workshop.status === 'published' && (
         <p className="text-xs text-amber-600 mt-2">Only {spotsLeft} spots left</p>
       )}
     </div>

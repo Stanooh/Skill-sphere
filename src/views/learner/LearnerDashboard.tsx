@@ -34,7 +34,7 @@ export function LearnerDashboard() {
   const roadmap = getRoadmap(user.id);
   const sessions = getSessionsForLearner(user.id);
   const upcomingSessions = sessions.filter((s) => s.status === 'accepted' || s.status === 'pending');
-  const workshops = getWorkshops().filter((w) => w.status === 'upcoming');
+  const workshops = getWorkshops().filter((w) => w.status === 'published');
   const progress = getProgress(user.id);
 
   const handleSaveToggle = (mentorId: string) => {
