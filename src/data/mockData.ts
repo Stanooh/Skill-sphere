@@ -176,6 +176,7 @@ export const mockMentorProfiles: MentorProfile[] = [
     rating: 4.9,
     reviewCount: 37,
     profileComplete: true,
+    activated: true,
   },
   {
     id: 'mp-2',
@@ -192,6 +193,7 @@ export const mockMentorProfiles: MentorProfile[] = [
     rating: 4.7,
     reviewCount: 22,
     profileComplete: true,
+    activated: true,
   },
   {
     id: 'mp-3',
@@ -208,6 +210,7 @@ export const mockMentorProfiles: MentorProfile[] = [
     rating: 4.8,
     reviewCount: 29,
     profileComplete: true,
+    activated: true,
   },
   {
     id: 'mp-4',
@@ -224,6 +227,7 @@ export const mockMentorProfiles: MentorProfile[] = [
     rating: 4.6,
     reviewCount: 18,
     profileComplete: true,
+    activated: true,
   },
 ];
 
@@ -283,7 +287,7 @@ export const mockWorkshops: Workshop[] = [
     durationMinutes: 120,
     capacity: 20,
     registeredLearnerIds: ['user-learner-1', 'user-learner-3'],
-    status: 'upcoming',
+    status: 'published',
   },
   {
     id: 'workshop-2',
@@ -295,7 +299,7 @@ export const mockWorkshops: Workshop[] = [
     durationMinutes: 90,
     capacity: 15,
     registeredLearnerIds: ['user-learner-2'],
-    status: 'upcoming',
+    status: 'published',
   },
   {
     id: 'workshop-3',
@@ -307,7 +311,7 @@ export const mockWorkshops: Workshop[] = [
     durationMinutes: 150,
     capacity: 25,
     registeredLearnerIds: ['user-learner-1', 'user-learner-2', 'user-learner-3'],
-    status: 'upcoming',
+    status: 'published',
   },
   {
     id: 'workshop-4',

@@ -4,7 +4,8 @@ export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
 export type SessionStatus = 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
 
-export type WorkshopStatus = 'upcoming' | 'completed' | 'cancelled';
+export type WorkshopStatus = 'draft' | 'published' | 'completed' | 'cancelled';
+export type WorkshopFormat = 'online' | 'in_person';
 
 export type Availability = 'available' | 'limited' | 'unavailable';
 
@@ -67,6 +68,7 @@ export interface MentorProfile {
   rating: number;
   reviewCount: number;
   profileComplete: boolean;
+  activated: boolean;
 }
 
 export interface AdminProfile {
@@ -103,10 +105,18 @@ export interface Workshop {
   description: string;
   skillId: string;
   date: string;
+  startTime?: string;
+  endTime?: string;
   durationMinutes: number;
   capacity: number;
   registeredLearnerIds: string[];
   status: WorkshopStatus;
+  coverImage?: string;
+  format?: WorkshopFormat;
+  meetingLink?: string;
+  location?: string;
+  learningObjectives?: string[];
+  prerequisites?: string;
 }
 
 export interface RoadmapMilestone {

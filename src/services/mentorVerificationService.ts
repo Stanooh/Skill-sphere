@@ -334,9 +334,11 @@ export async function adminApproveMentor(applicationId: string): Promise<{ succe
       rating: 0,
       reviewCount: 0,
       profileComplete: false,
+      activated: false,
     });
     saveDb();
   }
+  updateMentorProfile(rows[idx].user_id, { activated: true });
   addHistory(applicationId, 'Mentor approved by admin');
   pushNotification(rows[idx].user_id, 'Mentor application approved', 'Congratulations! Your mentor application has been approved. You now have access to the mentor dashboard.');
   return { success: true };
@@ -412,7 +414,7 @@ export async function adminSuspendMentor(applicationId: string, reason: string):
     updated_at: now,
   };
   writeJSON(APPS_KEY, rows);
-  updateMentorProfile(rows[idx].user_id, { profileComplete: false });
+  updateMentorProfile(rows[idx].user_id, { activated: false });
   addHistory(applicationId, 'Mentor suspended', reason);
   pushNotification(rows[idx].user_id, 'Mentor account suspended', `Your mentor account has been suspended. Reason: ${reason}`);
   return { success: true };

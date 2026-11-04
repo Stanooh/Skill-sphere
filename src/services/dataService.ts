@@ -216,7 +216,14 @@ export function getAllMentors(): Mentor[] {
       const skills = db.skills.filter((s) => profile.skillIds.includes(s.id));
       return { user, profile, skills };
     })
-    .filter((m) => isMentorProfileComplete(m.profile));
+    .filter((m) => m.profile.activated && isMentorProfileComplete(m.profile));
+}
+
+export function isApprovedMentor(userId: string): boolean {
+  const db = loadDb();
+  const user = db.users.find((u) => u.id === userId);
+  const profile = db.mentorProfiles.find((p) => p.userId === userId);
+  return user?.role === 'mentor' && profile?.activated === true;
 }
 
 // --- Recommendation Engine ---
@@ -366,17 +373,25 @@ export function unregisterFromWorkshop(workshopId: string, learnerId: string): W
   return undefined;
 }
 
-export function createWorkshop(workshop: Omit<Workshop, 'id' | 'registeredLearnerIds' | 'status'>): Workshop {
+export function createWorkshop(workshop: Omit<Workshop, 'id' | 'registeredLearnerIds'>): Workshop {
   const db = loadDb();
   const newWorkshop: Workshop = {
     ...workshop,
     id: `workshop-${Date.now()}`,
     registeredLearnerIds: [],
-    status: 'upcoming',
   };
   db.workshops.push(newWorkshop);
   saveDb();
   return newWorkshop;
+}
+
+export function updateWorkshop(workshopId: string, updates: Partial<Workshop>): Workshop | undefined {
+  const db = loadDb();
+  const idx = db.workshops.findIndex((w) => w.id === workshopId);
+  if (idx < 0) return undefined;
+  db.workshops[idx] = { ...db.workshops[idx], ...updates };
+  saveDb();
+  return db.workshops[idx];
 }
 
 export function deleteWorkshop(workshopId: string): void {
@@ -535,7 +550,7 @@ export function getPlatformStats() {
   const learners = db.users.filter((u) => u.role === 'learner');
   const mentors = db.users.filter((u) => u.role === 'mentor');
   const activeSessions = db.sessions.filter((s) => s.status === 'accepted' || s.status === 'pending');
-  const upcomingWorkshops = db.workshops.filter((w) => w.status === 'upcoming');
+  const upcomingWorkshops = db.workshops.filter((w) => w.status === 'published');
   const completedSessions = db.sessions.filter((s) => s.status === 'completed');
   const totalSkills = db.skills.length;
 

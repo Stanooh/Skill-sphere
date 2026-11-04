@@ -43,6 +43,7 @@ export function register(name: string, email: string, role: UserRole): User | nu
       rating: 0,
       reviewCount: 0,
       profileComplete: false,
+      activated: false,
     });
   } else {
     db.learnerProfiles.push({
