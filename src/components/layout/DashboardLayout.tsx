@@ -12,7 +12,6 @@ import {
   GraduationCap,
   Compass,
   BarChart3,
-  FileEdit,
   BookOpen,
   ClipboardList,
   Bell,
@@ -49,13 +48,11 @@ const learnerNav: NavItem[] = [
 ];
 
 const mentorNav: NavItem[] = [
-  { to: '/mentor/apply', label: 'Mentor Application', icon: <FileEdit className="w-[18px] h-[18px]" /> },
   { to: '/mentor', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
   { to: '/mentor/requests', label: 'Mentorship Requests', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
   { to: '/mentor/sessions', label: 'Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },
   { to: '/mentor/workshops', label: 'My Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { to: '/mentor/profile', label: 'My Profile', icon: <UserCircle className="w-[18px] h-[18px]" /> },
-  { to: '/mentor/verification', label: 'Verification', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
 ];
 
 const adminNav: NavItem[] = [

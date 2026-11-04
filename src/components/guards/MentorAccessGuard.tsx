@@ -11,6 +11,7 @@ interface MentorAccessGuardProps {
   children: ReactNode;
   title?: string;
   allowPending?: boolean;
+  excludeApproved?: boolean;
 }
 
 type GuardState =
@@ -19,7 +20,7 @@ type GuardState =
   | { phase: 'denied'; status: MentorApplicationStatus; application: MentorApplication | null }
   | { phase: 'allowed' };
 
-export function MentorAccessGuard({ children, allowPending = false }: MentorAccessGuardProps) {
+export function MentorAccessGuard({ children, allowPending = false, excludeApproved = false }: MentorAccessGuardProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [state, setState] = useState<GuardState>({ phase: 'loading' });
@@ -36,7 +37,12 @@ export function MentorAccessGuard({ children, allowPending = false }: MentorAcce
     (async () => {
       const result = await checkMentorAccess();
       if (result.hasAccess) {
-        setState({ phase: 'allowed' });
+        if (excludeApproved) {
+          router.replace('/mentor');
+          setState({ phase: 'redirect' });
+        } else {
+          setState({ phase: 'allowed' });
+        }
       } else if (allowPending) {
         if (result.status === 'not_applied' || result.status === 'verification_failed') {
           setState({ phase: 'allowed' });
@@ -50,7 +56,7 @@ export function MentorAccessGuard({ children, allowPending = false }: MentorAcce
         setState({ phase: 'denied', status: result.status, application: result.application });
       }
     })();
-  }, [user, loading, router, allowPending]);
+  }, [user, loading, router, allowPending, excludeApproved]);
 
   if (state.phase === 'loading' || state.phase === 'redirect') {
     return (
