@@ -3,7 +3,7 @@ import { MentorAccessGuard } from '@/components/guards/MentorAccessGuard';
 
 export default function Page() {
   return (
-    <MentorAccessGuard allowPending>
+    <MentorAccessGuard allowPending excludeApproved>
       <LearnerApplicationPage />
     </MentorAccessGuard>
   );

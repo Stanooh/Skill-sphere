@@ -1,4 +1,7 @@
 {
-  "/page": "app/page.js",
-  "/login/page": "app/login/page.js"
+  "/mentor/requests/page": "app/mentor/requests/page.js",
+  "/mentor/sessions/page": "app/mentor/sessions/page.js",
+  "/mentor/workshops/page": "app/mentor/workshops/page.js",
+  "/mentor/verification/page": "app/mentor/verification/page.js",
+  "/page": "app/page.js"
 }
