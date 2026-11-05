@@ -95,7 +95,7 @@ export function LearnerApplicationPage() {
     );
   }
 
-  const isEditable = !application || application.status === 'not_applied' || application.status === 'verification_failed' || application.status === 'rejected';
+  const isEditable = !application || application.status === 'not_applied' || application.status === 'verification_failed';
 
   const saveProfile = async () => {
     if (!application) {
