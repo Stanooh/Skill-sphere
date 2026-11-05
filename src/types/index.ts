@@ -51,6 +51,8 @@ export interface LearnerProfile {
   skillIds: string[];
   skillLevels: Record<string, SkillLevel>;
   profileComplete: boolean;
+  employerVisibility?: boolean;
+  approvedMentorIds?: string[];
 }
 
 export interface MentorProfile {
@@ -161,6 +163,24 @@ export interface MentorRecommendation {
   matchScore: number;
   matchingSkills: Skill[];
   matchPercentage: number;
+}
+
+export interface TalentProfile {
+  user: User;
+  profile: LearnerProfile;
+  skills: Skill[];
+  approvedMentors: Mentor[];
+}
+
+export interface EmployerContactRequest {
+  id: string;
+  learnerId: string;
+  employerName: string;
+  employerEmail: string;
+  companyName: string;
+  message: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
 }
 
 export interface Progress {

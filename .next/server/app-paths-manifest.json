@@ -1,8 +1,0 @@
-{
-  "/page": "app/page.js",
-  "/skills/page": "app/skills/page.js",
-  "/mentors/page": "app/mentors/page.js",
-  "/login/page": "app/login/page.js",
-  "/mentor/apply/page": "app/mentor/apply/page.js",
-  "/mentor/page": "app/mentor/page.js"
-}

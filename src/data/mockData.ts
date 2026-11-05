@@ -123,6 +123,8 @@ export const mockLearnerProfiles: LearnerProfile[] = [
       'skill-react': 'beginner',
     },
     profileComplete: true,
+    employerVisibility: true,
+    approvedMentorIds: ['user-mentor-1', 'user-mentor-3'],
   },
   {
     id: 'lp-2',
@@ -139,6 +141,7 @@ export const mockLearnerProfiles: LearnerProfile[] = [
       'skill-sql': 'beginner',
     },
     profileComplete: true,
+    employerVisibility: false,
   },
   {
     id: 'lp-3',
@@ -157,6 +160,8 @@ export const mockLearnerProfiles: LearnerProfile[] = [
       'skill-css': 'beginner',
     },
     profileComplete: true,
+    employerVisibility: true,
+    approvedMentorIds: ['user-mentor-4'],
   },
 ];
 
