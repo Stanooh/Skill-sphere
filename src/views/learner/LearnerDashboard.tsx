@@ -1,18 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Compass, Bookmark, CalendarDays, GraduationCap, BookOpen, ArrowRight, BarChart3, Sparkles, Wand2, MessageSquare } from 'lucide-react';
+import { Compass, CalendarDays, ArrowRight, Sparkles, Wand2, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
-import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar, EmptyState } from '@/components/ui';
 import { MentorCard } from '@/components/mentors/MentorCard';
 import { WorkshopCard } from '@/components/workshops/WorkshopCard';
 import {
   getRecommendedMentors,
-  getLearnerProfile,
   getRoadmap,
   getSessionsForLearner,
   getWorkshops,
@@ -29,7 +27,6 @@ export function LearnerDashboard() {
 
   if (!user) return null;
 
-  const profile = getLearnerProfile(user.id);
   const recommendations = getRecommendedMentors(user.id);
   const roadmap = getRoadmap(user.id);
   const sessions = getSessionsForLearner(user.id);

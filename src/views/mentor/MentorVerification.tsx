@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, FileText, Globe2, Linkedin, LockKeyhole, Github, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Globe2, Linkedin, LockKeyhole, Github } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { getSkills } from '@/services/dataService';
-import type { EvidenceType, MentorVerificationApplication, SkillVerification } from '@/types';
+import type { EvidenceType, MentorVerificationApplication, SkillVerification, User } from '@/types';
 import {
   addIdentityEvidence,
   addVerificationEvidence,
@@ -22,36 +22,30 @@ import { EvidenceList, EvidenceUploadField, VerificationProgress, VerificationSt
 
 export function MentorVerificationPage() {
   const { user } = useAuth();
+  if (!user) return null;
+
+  return <MentorVerificationContent key={user.id} user={user} />;
+}
+
+function MentorVerificationContent({ user }: { user: User }) {
   const { show } = useToast();
-  const [application, setApplication] = useState<MentorVerificationApplication | null>(null);
-  const [legalName, setLegalName] = useState('');
+  const [application, setApplication] = useState<MentorVerificationApplication>(
+    () => getVerificationApplication(user.id)
+  );
+  const [legalName, setLegalName] = useState(application.identity.legalName);
   const [identityType, setIdentityType] = useState<'passport' | 'national-id' | 'drivers-license'>('national-id');
   const [identityFile, setIdentityFile] = useState('');
-  const [headline, setHeadline] = useState('');
-  const [biography, setBiography] = useState('');
-  const [location, setLocation] = useState('');
-  const [linkedIn, setLinkedIn] = useState('');
-  const [github, setGithub] = useState('');
-  const [portfolio, setPortfolio] = useState('');
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-    const current = getVerificationApplication(user.id);
-    setApplication(current);
-    setLegalName(current.identity.legalName);
-    setHeadline(current.professionalHeadline);
-    setBiography(current.biography);
-    setLocation(current.location);
-    setLinkedIn(current.linkedIn ?? '');
-    setGithub(current.github ?? '');
-    setPortfolio(current.portfolio ?? '');
-    setSelectedSkillIds(current.selectedSkillIds ?? current.skills.map((skill) => skill.skillId));
-  }, [user]);
+  const [headline, setHeadline] = useState(application.professionalHeadline);
+  const [biography, setBiography] = useState(application.biography);
+  const [location, setLocation] = useState(application.location);
+  const [linkedIn, setLinkedIn] = useState(application.linkedIn ?? '');
+  const [github, setGithub] = useState(application.github ?? '');
+  const [portfolio, setPortfolio] = useState(application.portfolio ?? '');
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(
+    application.selectedSkillIds ?? application.skills.map((skill) => skill.skillId)
+  );
 
   const availableSkills = useMemo(() => getSkills(), []);
-
-  if (!user || !application) return null;
 
   const refresh = (next: MentorVerificationApplication) => setApplication({ ...next });
 
@@ -123,10 +117,10 @@ export function MentorVerificationPage() {
               <div><h2 className="text-lg font-semibold text-ink">Identity verification</h2><p className="mt-1 text-sm text-ink-400">This confirms that your professional profile belongs to you. It does not assess your skills.</p></div>
               <LockKeyhole className="h-6 w-6 text-brand-800" />
             </div>
-            <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900">Supported demonstration evidence: passport, national ID, or driver's license. Never upload a real document to this prototype.</div>
+            <div className="mb-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900">Supported demonstration evidence: passport, national ID, or driver&apos;s license. Never upload a real document to this prototype.</div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="label">Full legal name<input className="input mt-1.5" value={legalName} onChange={(event) => setLegalName(event.target.value)} /></label>
-              <label className="label">Evidence type<select className="input mt-1.5" value={identityType} onChange={(event) => setIdentityType(event.target.value as typeof identityType)}><option value="national-id">National ID</option><option value="passport">Passport</option><option value="drivers-license">Driver's license</option></select></label>
+              <label className="label">Evidence type<select className="input mt-1.5" value={identityType} onChange={(event) => setIdentityType(event.target.value as typeof identityType)}><option value="national-id">National ID</option><option value="passport">Passport</option><option value="drivers-license">Driver&apos;s license</option></select></label>
               <label className="label sm:col-span-2">Demo file name<input className="input mt-1.5" placeholder="national-id-demo.pdf" value={identityFile} onChange={(event) => setIdentityFile(event.target.value)} /></label>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-3"><Button onClick={addIdentity}>Save identity evidence</Button><VerificationStatusBadge status={application.identity.status} /></div>

@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import {
   Star,
-  ShieldAlert,
   Trash2,
   Eye,
   EyeOff,
   Building,
-  Mail,
-  User,
   CheckCircle2,
   AlertTriangle,
   History,
@@ -29,10 +27,9 @@ import {
 import {
   getUserById,
   getDb,
-  saveDb,
   updateLearnerProfile,
 } from '@/services/dataService';
-import type { StudentRecommendation, EmployerContactRequest, AdminActionLog } from '@/types';
+import type { StudentRecommendation, AdminActionLog } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
@@ -66,21 +63,16 @@ export function AdminRecommendationsPage() {
   const { show } = useToast();
 
   const [activeTab, setActiveTab] = useState<'recs' | 'profiles' | 'contacts' | 'logs'>('recs');
-  const [recommendations, setRecommendations] = useState<StudentRecommendation[]>([]);
-  const [contacts, setContacts] = useState<EmployerContactRequest[]>([]);
-  const [adminLogs, setAdminLogs] = useState<AdminActionLog[]>([]);
   const [search, setSearch] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [, setRefreshKey] = useState(0);
 
   // Moderation modal state
   const [selectedRecToDelete, setSelectedRecToDelete] = useState<StudentRecommendation | null>(null);
   const [deletionNote, setDeletionNote] = useState('');
 
-  useEffect(() => {
-    setRecommendations(getAllRecommendations());
-    setContacts(getAllEmployerContactRequests());
-    setAdminLogs(getAdminLogs());
-  }, [refreshKey]);
+  const recommendations = getAllRecommendations();
+  const contacts = getAllEmployerContactRequests();
+  const adminLogs = getAdminLogs();
 
   const db = getDb();
   const visibleLearners = db.learnerProfiles.filter((p) => p.employerVisibility === true);
@@ -119,10 +111,9 @@ export function AdminRecommendationsPage() {
     setRefreshKey((k) => k + 1);
   };
 
-  const filteredRecs = useMemo(() => {
-    if (!search.trim()) return recommendations;
+  const filteredRecs = recommendations.filter((r) => {
+    if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return recommendations.filter((r) => {
       const mentor = getUserById(r.mentorId);
       const student = getUserById(r.studentId);
       return (
@@ -130,8 +121,7 @@ export function AdminRecommendationsPage() {
         student?.name.toLowerCase().includes(q) ||
         r.recommendation.toLowerCase().includes(q)
       );
-    });
-  }, [recommendations, search]);
+  });
 
   return (
     <DashboardLayout>
@@ -276,7 +266,7 @@ export function AdminRecommendationsPage() {
                       </div>
                     </div>
 
-                    <p className="text-sm text-ink-400 italic">"{rec.recommendation}"</p>
+                    <p className="text-sm text-ink-400 italic">&quot;{rec.recommendation}&quot;</p>
 
                     <div className="flex flex-wrap gap-1 text-xs">
                       {rec.strengths.map((st) => (
@@ -313,11 +303,16 @@ export function AdminRecommendationsPage() {
               return (
                 <div key={lp.id} className="card p-5 flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <img
-                      src={student.avatar}
-                      alt={student.name}
-                      className="w-12 h-12 rounded-full ring-2 ring-brand/30"
-                    />
+                    {student.avatar && (
+                      <Image
+                        src={student.avatar}
+                        alt={student.name}
+                        width={48}
+                        height={48}
+                        unoptimized
+                        className="w-12 h-12 rounded-full ring-2 ring-brand/30"
+                      />
+                    )}
                     <div className="min-w-0">
                       <h4 className="font-semibold text-ink text-sm truncate">{student.name}</h4>
                       <p className="text-xs text-brand truncate">{lp.learningGoal}</p>
@@ -372,7 +367,7 @@ export function AdminRecommendationsPage() {
                       <span className="badge bg-ink-100 text-ink-400 text-xs uppercase">{req.status}</span>
                     </div>
                     <p className="text-xs text-ink-400 bg-ink-100 p-2.5 rounded-lg">
-                      "{req.message}"
+                      &quot;{req.message}&quot;
                     </p>
                   </div>
                 );
@@ -468,4 +463,3 @@ export function AdminRecommendationsPage() {
     </DashboardLayout>
   );
 }
-

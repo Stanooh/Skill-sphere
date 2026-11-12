@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import type { UserRole } from '@/types';
@@ -12,11 +12,6 @@ function roleBase(role: UserRole): string {
 export function ProtectedRoute({ role, children }: { role: UserRole; children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -27,7 +22,7 @@ export function ProtectedRoute({ role, children }: { role: UserRole; children: R
     }
   }, [user, loading, role, router]);
 
-  if (!mounted || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink-50">
         <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
@@ -44,11 +39,6 @@ export function ProtectedRoute({ role, children }: { role: UserRole; children: R
 export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -57,7 +47,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
     }
   }, [user, loading, router]);
 
-  if (!mounted || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink-50">
         <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />

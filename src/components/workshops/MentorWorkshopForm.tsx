@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -99,15 +99,22 @@ function buildInput(form: FormState): WorkshopInput {
 }
 
 export function MentorWorkshopForm({ mentorId, open, workshop, onClose, onSaved }: MentorWorkshopFormProps) {
-  const [form, setForm] = useState<FormState>(toFormState(workshop));
-  const [error, setError] = useState<string | null>(null);
+  const formKey = `${open}:${JSON.stringify(toFormState(workshop))}`;
+  return (
+    <MentorWorkshopFormFields
+      key={formKey}
+      mentorId={mentorId}
+      open={open}
+      workshop={workshop}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  );
+}
 
-  useEffect(() => {
-    if (open) {
-      setForm(toFormState(workshop));
-      setError(null);
-    }
-  }, [open, workshop]);
+function MentorWorkshopFormFields({ mentorId, open, workshop, onClose, onSaved }: MentorWorkshopFormProps) {
+  const [form, setForm] = useState<FormState>(() => toFormState(workshop));
+  const [error, setError] = useState<string | null>(null);
 
   const update = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));

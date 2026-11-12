@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar, Clock, Users, MapPin } from 'lucide-react';
+import Image from 'next/image';
+import { Calendar, Clock, Users } from 'lucide-react';
 import type { Workshop } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -36,7 +37,16 @@ export function WorkshopCard({
 
       {showMentor && mentor && (
         <Link href={`/learner/mentors/${mentor.user.id}`} className="flex items-center gap-2 mb-3 group">
-          <img src={mentor.user.avatar} alt={mentor.user.name} className="w-7 h-7 rounded-full" />
+          {mentor.user.avatar && (
+            <Image
+              src={mentor.user.avatar}
+              alt={mentor.user.name}
+              width={28}
+              height={28}
+              unoptimized
+              className="w-7 h-7 rounded-full"
+            />
+          )}
           <span className="text-sm text-ink-500 group-hover:text-brand-700">{mentor.user.name}</span>
         </Link>
       )}

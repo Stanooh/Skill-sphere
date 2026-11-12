@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { GraduationCap, Compass, TrendingUp, Users, Target, BookOpen, CalendarDays, BarChart3, Shield } from 'lucide-react';
+import { GraduationCap, Compass, Users, Target, BookOpen, CalendarDays, BarChart3, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export function AboutPage() {

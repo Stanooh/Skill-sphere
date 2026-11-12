@@ -5,7 +5,6 @@ import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Plus, Trash2, Bookmark } from 'lucide-react';
 import { getSkills, createSkill, deleteSkill } from '@/services/dataService';

@@ -3,7 +3,8 @@ import { getUserByEmail, getDb, saveDb } from './dataService';
 
 const SESSION_KEY = 'skillsphere_session';
 
-export function login(email: string, _password: string): User | null {
+export function login(email: string, password: string): User | null {
+  void password;
   const user = getUserByEmail(email);
   if (!user) return null;
   const session = { userId: user.id };

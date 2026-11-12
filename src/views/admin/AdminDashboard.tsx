@@ -3,12 +3,12 @@
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui';
 import { Users, GraduationCap, Compass, CalendarDays, BookOpen, ClipboardList, Star, TrendingUp } from 'lucide-react';
-import { getPlatformStats, getAllMentors, getUsersByRole, getWorkshops, getSessionsForMentor } from '@/services/dataService';
+import Image from 'next/image';
+import { getPlatformStats, getAllMentors, getWorkshops, getSessionsForMentor } from '@/services/dataService';
 
 export function AdminDashboard() {
   const stats = getPlatformStats();
   const mentors = getAllMentors();
-  const learners = getUsersByRole('learner');
   const workshops = getWorkshops();
 
   // Recent activity: latest sessions across mentors
@@ -46,7 +46,16 @@ export function AdminDashboard() {
               .map((m) => (
                 <div key={m.user.id} className="flex items-center justify-between border-b border-ink-50 last:border-0 pb-3 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <img src={m.user.avatar} alt={m.user.name} className="w-10 h-10 rounded-full" />
+                    {m.user.avatar && (
+                      <Image
+                        src={m.user.avatar}
+                        alt={m.user.name}
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="w-10 h-10 rounded-full"
+                      />
+                    )}
                     <div>
                       <p className="text-sm font-medium text-ink">{m.user.name}</p>
                       <p className="text-xs text-ink-400">{m.profile.professionalTitle}</p>

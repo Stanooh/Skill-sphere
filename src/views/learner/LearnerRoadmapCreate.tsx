@@ -2,15 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { ProgressBar, EmptyState } from '@/components/ui';
-import { Sparkles, Check, ArrowRight, ArrowLeft, Compass, GraduationCap, Clock, BookOpen, MessageSquare, Search } from 'lucide-react';
+import { ProgressBar } from '@/components/ui';
+import { Sparkles, Check, ArrowRight, ArrowLeft, Compass, BookOpen, MessageSquare, Search } from 'lucide-react';
 import type { SkillLevel, LearningRoadmap, MilestoneStatus } from '@/types';
 import {
   getCareerPaths,
@@ -19,7 +18,7 @@ import {
   toggleMilestoneComplete,
   getRoadmapProgress,
 } from '@/services/ai/roadmapService';
-import { getLearnerProfile, getSkills, getSkillsByIds, getRecommendedMentors } from '@/services/dataService';
+import { getLearnerProfile, getSkills } from '@/services/dataService';
 
 const steps = ['Career Path', 'Current Skills', 'Skill Level', 'Interests', 'Availability', 'Timeline'];
 
@@ -27,17 +26,20 @@ const interestOptions = ['Frontend', 'Backend', 'UI/UX', 'Web Performance', 'Dev
 
 export function LearnerRoadmapCreatePage() {
   const { user } = useAuth();
+  if (!user) return null;
+
+  return <LearnerRoadmapCreateContent key={user.id} userId={user.id} userName={user.name} />;
+}
+
+function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; userName: string }) {
   const { show } = useToast();
-  const router = useRouter();
   const [step, setStep] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const [generatedRoadmap, setGeneratedRoadmap] = useState<LearningRoadmap | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  if (!user) return null;
-
-  const profile = getLearnerProfile(user.id);
+  const profile = getLearnerProfile(userId);
   const allSkills = getSkills();
   const careerPaths = getCareerPaths();
   const existingRoadmap = getAIRoadmap();
@@ -75,7 +77,7 @@ export function LearnerRoadmapCreatePage() {
         if (idx === genSteps.length - 1) {
           setTimeout(() => {
             const roadmap = generateAIRoadmap({
-              learnerId: user.id,
+              learnerId: userId,
               careerPath,
               currentSkills: selectedSkills,
               skillLevels,
@@ -144,7 +146,7 @@ export function LearnerRoadmapCreatePage() {
       <DashboardLayout key={refreshKey}>
         <PageHeader
           title={`${generatedRoadmap.careerPath} Roadmap`}
-          description={`Personalized for ${user.name.split(' ')[0]} • ${generatedRoadmap.targetTimeline} • ${generatedRoadmap.hoursPerWeek}h/week`}
+          description={`Personalized for ${userName.split(' ')[0]} • ${generatedRoadmap.targetTimeline} • ${generatedRoadmap.hoursPerWeek}h/week`}
           action={
             <div className="flex gap-2">
               <Link href="/learner/career-advisor">
@@ -279,7 +281,7 @@ export function LearnerRoadmapCreatePage() {
           {step === 0 && (
             <div>
               <h3 className="text-lg font-semibold text-ink mb-2">What career are you working toward?</h3>
-              <p className="text-sm text-ink-400 mb-4">Select a career path and we'll build a roadmap to get you there.</p>
+              <p className="text-sm text-ink-400 mb-4">Select a career path and we&apos;ll build a roadmap to get you there.</p>
               <div className="grid sm:grid-cols-2 gap-2">
                 {careerPaths.map((path) => (
                   <button
@@ -301,7 +303,7 @@ export function LearnerRoadmapCreatePage() {
           {step === 1 && (
             <div>
               <h3 className="text-lg font-semibold text-ink mb-2">What skills do you already have?</h3>
-              <p className="text-sm text-ink-400 mb-4">Select the skills you're already familiar with.</p>
+              <p className="text-sm text-ink-400 mb-4">Select the skills you&apos;re already familiar with.</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto scrollbar-thin">
                 {allSkills.map((skill) => {
                   const isSelected = selectedSkills.includes(skill.id);
@@ -334,7 +336,7 @@ export function LearnerRoadmapCreatePage() {
 
           {step === 2 && (
             <div>
-              <h3 className="text-lg font-semibold text-ink mb-2">What's your skill level?</h3>
+              <h3 className="text-lg font-semibold text-ink mb-2">What&apos;s your skill level?</h3>
               <p className="text-sm text-ink-400 mb-4">Set your current level for each selected skill.</p>
               {selectedSkills.length === 0 ? (
                 <p className="text-sm text-ink-400">No skills selected. Go back and select skills.</p>
@@ -367,7 +369,7 @@ export function LearnerRoadmapCreatePage() {
           {step === 3 && (
             <div>
               <h3 className="text-lg font-semibold text-ink mb-2">What areas interest you?</h3>
-              <p className="text-sm text-ink-400 mb-4">Select areas you'd like to explore.</p>
+              <p className="text-sm text-ink-400 mb-4">Select areas you&apos;d like to explore.</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {interestOptions.map((interest) => {
                   const isSelected = interests.includes(interest);

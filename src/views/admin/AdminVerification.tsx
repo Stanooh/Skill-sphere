@@ -7,7 +7,7 @@ import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import type { MentorApplicationWithDetails, MentorProfile } from '@/types';
+import type { MentorApplicationWithDetails } from '@/types';
 import {
   adminListApplications,
   adminApproveMentor,
@@ -33,7 +33,6 @@ export function AdminVerificationPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const loadApplications = async () => {
-    setLoading(true);
     const data = await adminListApplications();
     setApplications(data);
     setLoading(false);
@@ -41,7 +40,17 @@ export function AdminVerificationPage() {
 
   useEffect(() => {
     if (!user) return;
-    loadApplications();
+    let active = true;
+    const load = async () => {
+      const data = await adminListApplications();
+      if (!active) return;
+      setApplications(data);
+      setLoading(false);
+    };
+    void load();
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   const filtered = useMemo(() => applications.filter((app) => {
@@ -62,6 +71,7 @@ export function AdminVerificationPage() {
     if (result.success) {
       show(successMsg, 'success');
       setFeedback('');
+      setLoading(true);
       await loadApplications();
     } else {
       show(result.error || 'Action failed', 'error');

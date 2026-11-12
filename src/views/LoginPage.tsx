@@ -17,8 +17,6 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const [submitting, setSubmitting] = useState(false);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -26,12 +24,10 @@ export function LoginPage() {
       setError('Please enter both email and password.');
       return;
     }
-    setSubmitting(true);
     try {
       const user = await login(email, password);
       if (!user) {
         setError('No account found with that email. Try a demo account below.');
-        setSubmitting(false);
         return;
       }
       show(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
@@ -39,7 +35,6 @@ export function LoginPage() {
       router.push(base);
     } catch {
       setError('Sign in failed. Please try again.');
-      setSubmitting(false);
     }
   };
 
@@ -133,7 +128,7 @@ export function LoginPage() {
           </div>
 
           <p className="text-sm text-ink-400 mt-6 text-center">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-brand-400 font-medium hover:text-brand-300">Sign up</Link>
           </p>
         </div>

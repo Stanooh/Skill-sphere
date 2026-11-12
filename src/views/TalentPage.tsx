@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Search,
   MapPin,
@@ -9,13 +10,8 @@ import {
   Target,
   Mail,
   ArrowRight,
-  Briefcase,
   X,
   Star,
-  Sparkles,
-  SlidersHorizontal,
-  Award,
-  ExternalLink,
 } from 'lucide-react';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { Badge } from '@/components/ui/Badge';
@@ -210,11 +206,16 @@ export function TalentPage() {
                 <div>
                   {/* Top: Avatar, Name & Headline */}
                   <div className="flex items-start gap-3.5 mb-4">
-                    <img
-                      src={talent.user.avatar}
-                      alt={talent.user.name}
-                      className="w-14 h-14 rounded-full ring-2 ring-brand/30 object-cover"
-                    />
+                    {talent.user.avatar && (
+                      <Image
+                        src={talent.user.avatar}
+                        alt={talent.user.name}
+                        width={56}
+                        height={56}
+                        unoptimized
+                        className="w-14 h-14 rounded-full ring-2 ring-brand/30 object-cover"
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-ink text-base truncate">{talent.user.name}</h3>
                       <p className="text-xs font-medium text-brand truncate flex items-center gap-1 mt-0.5">
@@ -261,7 +262,7 @@ export function TalentPage() {
                       </div>
                       {firstRec && (
                         <p className="text-xs text-ink-400 italic line-clamp-2">
-                          "{firstRec.recommendation}"
+                          &quot;{firstRec.recommendation}&quot;
                         </p>
                       )}
                     </div>
@@ -311,11 +312,16 @@ export function TalentPage() {
         ) : (
           <form onSubmit={handleContact} className="space-y-4">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-ink-100 border border-ink-200">
-              <img
-                src={selectedTalent?.user.avatar}
-                alt=""
-                className="w-10 h-10 rounded-full object-cover"
-              />
+              {selectedTalent?.user.avatar && (
+                <Image
+                  src={selectedTalent.user.avatar}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              )}
               <div className="min-w-0">
                 <p className="font-semibold text-ink text-sm">{selectedTalent?.user.name}</p>
                 <p className="text-xs text-brand truncate">

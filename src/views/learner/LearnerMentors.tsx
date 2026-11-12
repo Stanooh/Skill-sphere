@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { MentorCard } from '@/components/mentors/MentorCard';
-import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui';
 import { Search, Compass } from 'lucide-react';
 import {

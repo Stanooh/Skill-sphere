@@ -1,5 +1,6 @@
 import { Calendar, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { getWorkshops, getSkillById, getMentor } from '@/services/dataService';
 import { Badge } from '@/components/ui/Badge';
@@ -28,7 +29,16 @@ export function PublicWorkshopsPage() {
               <p className="text-sm text-ink-400 mb-4 line-clamp-2">{w.description}</p>
               {mentor && (
                 <div className="flex items-center gap-2 mb-3">
-                  <img src={mentor.user.avatar} alt={mentor.user.name} className="w-7 h-7 rounded-full" />
+                  {mentor.user.avatar && (
+                    <Image
+                      src={mentor.user.avatar}
+                      alt={mentor.user.name}
+                      width={28}
+                      height={28}
+                      unoptimized
+                      className="w-7 h-7 rounded-full"
+                    />
+                  )}
                   <span className="text-sm text-ink-500">{mentor.user.name}</span>
                 </div>
               )}

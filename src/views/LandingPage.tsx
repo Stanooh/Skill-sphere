@@ -1,8 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   GraduationCap,
   Compass,
-  MapPin,
   TrendingUp,
   Users,
   ArrowRight,
@@ -155,7 +155,14 @@ export function LandingPage() {
           </div>
           <div className="card p-6">
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-ink-100">
-              <img src="https://i.pravatar.cc/150?img=45" alt="Mentor" className="w-12 h-12 rounded-full" />
+              <Image
+                src="https://i.pravatar.cc/150?img=45"
+                alt="Mentor"
+                width={48}
+                height={48}
+                unoptimized
+                className="w-12 h-12 rounded-full"
+              />
               <div className="flex-1">
                 <p className="font-semibold text-ink">Sarah Wanjiku</p>
                 <p className="text-sm text-ink-400">Senior Frontend Engineer</p>

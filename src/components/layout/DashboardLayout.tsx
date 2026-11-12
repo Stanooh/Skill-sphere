@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -27,7 +27,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { getNotifications, markAllNotificationsRead } from '@/services/dataService';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 
 interface NavItem {
   to: string;
@@ -91,7 +91,7 @@ export function DashboardLayout({ children, title, restricted = false }: { child
   const roleBase = user?.role === 'learner' ? '/learner' : user?.role === 'mentor' ? '/mentor' : '/admin';
   const profileHref = restricted ? '/mentor/account' : `${roleBase}/profile`;
 
-  const notifications = useMemo(() => (user ? getNotifications(user.id) : []), [user, pathname]);
+  const notifications = user ? getNotifications(user.id) : [];
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleLogout = async () => {
@@ -239,23 +239,41 @@ export function PageHeader({ title, description, action }: { title: string; desc
   );
 }
 
-export function RoleGuard({ role, children }: { role: 'learner' | 'mentor' | 'admin'; children: ReactNode }) {
+export function RoleGuard({
+  role,
+  children,
+}: {
+  role: 'learner' | 'mentor' | 'admin';
+  children: ReactNode;
+}) {
   const { user } = useAuth();
   const router = useRouter();
 
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
 
-  if (user.role !== role) {
-    const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
-    router.push(base);
+    if (user.role !== role) {
+      const base =
+        user.role === 'learner'
+          ? '/learner'
+          : user.role === 'mentor'
+            ? '/mentor'
+            : '/admin';
+
+      router.replace(base);
+    }
+  }, [user, role, router]);
+
+  if (!user || user.role !== role) {
     return null;
   }
 
   return <>{children}</>;
 }
+
 
 export function AdminBadge() {
   return (

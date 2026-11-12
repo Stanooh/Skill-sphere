@@ -20,8 +20,6 @@ export function RegisterPage() {
   const [role, setRole] = useState<UserRole>('learner');
   const [error, setError] = useState('');
 
-  const [submitting, setSubmitting] = useState(false);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -29,12 +27,10 @@ export function RegisterPage() {
       setError('Please fill in all fields.');
       return;
     }
-    setSubmitting(true);
     try {
       const user = await register(name, email, role, password);
       if (!user) {
         setError('An account with that email already exists.');
-        setSubmitting(false);
         return;
       }
       show(`Account created. Welcome, ${user.name.split(' ')[0]}!`, 'success');
@@ -42,7 +38,6 @@ export function RegisterPage() {
       router.push(base);
     } catch {
       setError('Registration failed. Please try again.');
-      setSubmitting(false);
     }
   };
 

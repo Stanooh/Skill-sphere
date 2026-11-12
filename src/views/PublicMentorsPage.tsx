@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Search, Star, MapPin, Calendar } from 'lucide-react';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { getAllMentors } from '@/services/dataService';
@@ -45,7 +46,16 @@ export function PublicMentorsPage() {
           {filtered.map((m) => (
             <div key={m.user.id} className="card p-5 flex flex-col">
               <div className="flex items-start gap-3 mb-4">
-                <img src={m.user.avatar} alt={m.user.name} className="w-12 h-12 rounded-full" />
+                {m.user.avatar && (
+                  <Image
+                    src={m.user.avatar}
+                    alt={m.user.name}
+                    width={48}
+                    height={48}
+                    unoptimized
+                    className="w-12 h-12 rounded-full"
+                  />
+                )}
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-ink truncate">{m.user.name}</h3>
                   <p className="text-sm text-ink-400 truncate">{m.profile.professionalTitle}</p>

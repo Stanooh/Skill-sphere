@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import {
@@ -15,11 +14,7 @@ import {
   PenLine,
   Trash2,
   AlertCircle,
-  Briefcase,
   Target,
-  Clock,
-  Sparkles,
-  Award,
 } from 'lucide-react';
 import {
   getSessionsForMentor,
@@ -370,16 +365,14 @@ export function MentorStudentRecommendations() {
   const { user } = useAuth();
   const { show } = useToast();
   const [search, setSearch] = useState('');
-  const [skillFilter, setSkillFilter] = useState('');
   const [progressFilter, setProgressFilter] = useState('');
-  const [students, setStudents] = useState<MentoredStudent[]>([]);
-  const [myRecs, setMyRecs] = useState<StudentRecommendation[]>([]);
   const [formStudent, setFormStudent] = useState<MentoredStudent | null>(null);
   const [activeTab, setActiveTab] = useState<'students' | 'submitted'>('students');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    if (!user) return;
+  const { students, myRecs } = (() => {
+    if (!user) return { students: [], myRecs: [] as StudentRecommendation[] };
+
     const mentorSessions = getSessionsForMentor(user.id);
     // Mentors can only recommend students they have active or completed sessions with
     const validSessions = mentorSessions.filter(
@@ -387,7 +380,6 @@ export function MentorStudentRecommendations() {
     );
     const uniqueStudentIds = [...new Set(validSessions.map((s) => s.learnerId))];
     const recs = getRecommendationsForMentor(user.id);
-    setMyRecs(recs);
 
     const list: MentoredStudent[] = [];
     for (const sid of uniqueStudentIds) {
@@ -414,11 +406,10 @@ export function MentorStudentRecommendations() {
       });
     }
 
-    setStudents(list);
-  }, [user, refreshKey]);
+    return { students: list, myRecs: recs };
+  })();
 
-  const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
+  const filteredStudents = students.filter((s) => {
       if (search.trim()) {
         const q = search.toLowerCase();
         const matches =
@@ -427,17 +418,13 @@ export function MentorStudentRecommendations() {
           s.skills.some((sk) => sk.name.toLowerCase().includes(q));
         if (!matches) return false;
       }
-      if (skillFilter) {
-        if (!s.profile.skillIds.includes(skillFilter)) return false;
-      }
       if (progressFilter === 'high') {
         if (s.progress.percentage < 50) return false;
       } else if (progressFilter === 'low') {
         if (s.progress.percentage >= 50) return false;
       }
       return true;
-    });
-  }, [students, search, skillFilter, progressFilter]);
+  });
 
   const handleWithdraw = (recId: string) => {
     if (!user) return;
@@ -603,7 +590,7 @@ export function MentorStudentRecommendations() {
               <Star className="w-12 h-12 text-ink-300 mx-auto mb-3" />
               <p className="font-semibold text-ink mb-1">No recommendations submitted yet</p>
               <p className="text-sm text-ink-400">
-                Switch to the "Mentored Students" tab to write your first professional recommendation.
+                Switch to the &quot;Mentored Students&quot; tab to write your first professional recommendation.
               </p>
             </div>
           ) : (
@@ -672,7 +659,7 @@ export function MentorStudentRecommendations() {
                     </div>
                   </div>
 
-                  <p className="text-sm text-ink-400 italic">"{rec.recommendation}"</p>
+                  <p className="text-sm text-ink-400 italic">&quot;{rec.recommendation}&quot;</p>
 
                   <div className="flex flex-wrap gap-1.5 pt-2">
                     {rec.careerAreas.map((area) => (

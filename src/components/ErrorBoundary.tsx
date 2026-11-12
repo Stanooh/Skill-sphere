@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
             Something went wrong
           </h1>
           <p style={{ color: '#6B7C84', marginBottom: '1rem' }}>
-            The app encountered an error while loading. Try clearing your browser's local storage
+            The app encountered an error while loading. Try clearing your browser&apos;s local storage
             and refreshing the page.
           </p>
           <pre style={{

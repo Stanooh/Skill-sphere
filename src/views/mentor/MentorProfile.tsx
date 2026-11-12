@@ -12,7 +12,7 @@ import { getMentorProfile, updateMentorProfile, getSkills } from '@/services/dat
 import { deleteMentorAccount } from '@/services/accountService';
 import { DeleteAccountDialog } from '@/components/account/DeleteAccountDialog';
 import { useRouter } from 'next/navigation';
-import type { Availability, SkillLevel } from '@/types';
+import type { Availability, SkillLevel, User } from '@/types';
 import { Check, Trash2 } from 'lucide-react';
 
 const availabilityOptions: { value: Availability; label: string }[] = [
@@ -23,14 +23,18 @@ const availabilityOptions: { value: Availability; label: string }[] = [
 
 export function MentorProfilePage() {
   const { user, logout } = useAuth();
+  if (!user) return null;
+
+  return <MentorProfileContent key={user.id} user={user} logout={logout} />;
+}
+
+function MentorProfileContent({ user, logout }: { user: User; logout: () => Promise<void> }) {
   const { show } = useToast();
   const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [certInput, setCertInput] = useState('');
   const [areaInput, setAreaInput] = useState('');
-
-  if (!user) return null;
 
   const profile = getMentorProfile(user.id);
   const skills = getSkills();

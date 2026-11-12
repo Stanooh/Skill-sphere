@@ -3,7 +3,6 @@ import type {
   LearningRoadmap,
   RoadmapPhase,
   AIRoadmapMilestone,
-  SkillLevel,
 } from '@/types';
 
 const STORAGE_KEY = 'skillsphere_ai_roadmap';
@@ -132,9 +131,6 @@ export function getCareerPaths(): string[] {
 
 export function generateAIRoadmap(input: RoadmapGenerationInput): LearningRoadmap {
   const template = careerTemplates[input.careerPath] ?? careerTemplates['Frontend Developer'];
-
-  // Filter out phases for skills the learner already has at advanced/expert level
-  const existingSkillNames = input.currentSkills.map((id) => id);
 
   const phases: RoadmapPhase[] = template.phases.map((phase, idx) => {
     const milestones: AIRoadmapMilestone[] = [

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   MapPin,
@@ -10,10 +11,7 @@ import {
   Briefcase,
   Star,
   Mail,
-  ExternalLink,
-  Github,
   CheckCircle2,
-  Calendar,
   Award,
   Layers,
   Sparkles,
@@ -22,7 +20,6 @@ import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Avatar } from '@/components/ui/Avatar';
 import { getTalentProfileById } from '@/services/talentService';
 import { createEmployerContactRequest } from '@/services/contactRequestService';
 import { getAcceptedRecommendationsForStudent } from '@/services/recommendationService';
@@ -118,11 +115,16 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
         {/* Left Column: Summary Card */}
         <div className="lg:col-span-1 space-y-5">
           <div className="card p-6 text-center">
-            <img
-              src={talent.user.avatar}
-              alt={talent.user.name}
-              className="w-24 h-24 rounded-full mx-auto mb-4 ring-2 ring-brand/40 object-cover"
-            />
+            {talent.user.avatar && (
+              <Image
+                src={talent.user.avatar}
+                alt={talent.user.name}
+                width={96}
+                height={96}
+                unoptimized
+                className="w-24 h-24 rounded-full mx-auto mb-4 ring-2 ring-brand/40 object-cover"
+              />
+            )}
             <h1 className="text-2xl font-bold text-ink mb-1">{talent.user.name}</h1>
             <p className="text-sm font-medium text-brand mb-2">{talent.profile.learningGoal}</p>
             <p className="text-xs text-ink-400 flex items-center justify-center gap-1 mb-5">
@@ -177,11 +179,16 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
               <div className="space-y-2.5">
                 {talent.approvedMentors.map((m) => (
                   <div key={m.user.id} className="flex items-center gap-3">
-                    <img
-                      src={m.user.avatar}
-                      alt={m.user.name}
-                      className="w-8 h-8 rounded-full"
-                    />
+                    {m.user.avatar && (
+                      <Image
+                        src={m.user.avatar}
+                        alt={m.user.name}
+                        width={32}
+                        height={32}
+                        unoptimized
+                        className="w-8 h-8 rounded-full"
+                      />
+                    )}
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-ink truncate">{m.user.name}</p>
                       <p className="text-[11px] text-ink-400 truncate">
@@ -256,11 +263,16 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={mentor?.avatar}
-                            alt={mentor?.name ?? 'Mentor'}
-                            className="w-10 h-10 rounded-full"
-                          />
+                          {mentor?.avatar && (
+                            <Image
+                              src={mentor.avatar}
+                              alt={mentor.name}
+                              width={40}
+                              height={40}
+                              unoptimized
+                              className="w-10 h-10 rounded-full"
+                            />
+                          )}
                           <div>
                             <p className="font-semibold text-ink text-sm">
                               {mentor?.name ?? 'Verified Mentor'}
@@ -276,7 +288,7 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
                       </div>
 
                       <blockquote className="text-sm text-ink-400 italic leading-relaxed border-l-2 border-brand pl-3">
-                        "{rec.recommendation}"
+                        &quot;{rec.recommendation}&quot;
                       </blockquote>
 
                       {rec.strengths.length > 0 && (
@@ -354,7 +366,7 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
             </div>
             <h3 className="text-lg font-bold text-ink mb-2">Request Successfully Sent</h3>
             <p className="text-sm text-ink-400 mb-6 max-w-sm mx-auto">
-              We have forwarded your note directly to {talent.user.name}'s SkillSphere dashboard.
+              We have forwarded your note directly to {talent.user.name}&apos;s SkillSphere dashboard.
               They will review your inquiry and follow up via your email.
             </p>
             <Button onClick={closeContact}>Close</Button>
@@ -362,11 +374,16 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
         ) : (
           <form onSubmit={handleContact} className="space-y-4">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-ink-100 border border-ink-200">
-              <img
-                src={talent.user.avatar}
-                alt=""
-                className="w-10 h-10 rounded-full object-cover"
-              />
+              {talent.user.avatar && (
+                <Image
+                  src={talent.user.avatar}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              )}
               <div className="min-w-0">
                 <p className="font-semibold text-ink text-sm">{talent.user.name}</p>
                 <p className="text-xs text-brand truncate">{talent.profile.learningGoal}</p>
@@ -432,4 +449,3 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
     </PublicBrowseLayout>
   );
 }
-

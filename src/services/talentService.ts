@@ -1,4 +1,4 @@
-import type { TalentProfile, EmployerContactRequest, Skill, Mentor, User, LearnerProfile } from '@/types';
+import type { TalentProfile, Skill, Mentor } from '@/types';
 import { getDb } from './dataService';
 import { getAcceptedRecommendationsForStudent } from './recommendationService';
 export {

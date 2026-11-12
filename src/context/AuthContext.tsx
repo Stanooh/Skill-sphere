@@ -1,10 +1,57 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useSyncExternalStore,
+  useCallback,
+  useEffect,
+  type ReactNode,
+} from 'react';
 import type { User, UserRole } from '@/types';
 import * as authService from '@/services/authService';
 import { seedDemoApplications } from '@/services/mentorVerificationService';
 import { seedMockRecommendations } from '@/services/recommendationService';
+
+const AUTH_CHANGE_EVENT = 'skillsphere:auth-change';
+let authRevision = 0;
+
+function subscribeToAuth(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener('storage', onChange);
+  window.addEventListener(AUTH_CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener(AUTH_CHANGE_EVENT, onChange);
+  };
+}
+
+function getAuthSnapshot(): string {
+  return `${authRevision}:${authService.getCurrentUserId() ?? ''}`;
+}
+
+function getServerAuthSnapshot(): string {
+  return '0:';
+}
+
+function notifyAuthChanged(): void {
+  authRevision += 1;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  }
+}
+
+function subscribeToNothing(): () => void {
+  return () => {};
+}
+
+function getHydratedSnapshot(): boolean {
+  return true;
+}
+
+function getServerHydrationSnapshot(): boolean {
+  return false;
+}
 
 interface AuthContextValue {
   user: User | null;
@@ -18,36 +65,44 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const authSnapshot = useSyncExternalStore(
+    subscribeToAuth,
+    getAuthSnapshot,
+    getServerAuthSnapshot
+  );
+  const hydrated = useSyncExternalStore(
+    subscribeToNothing,
+    getHydratedSnapshot,
+    getServerHydrationSnapshot
+  );
+  const userId = authSnapshot.slice(authSnapshot.indexOf(':') + 1);
+  const user: User | null = userId ? authService.getCurrentUser() : null;
+  const loading = !hydrated;
 
   useEffect(() => {
     seedDemoApplications();
     seedMockRecommendations();
-    const current = authService.getCurrentUser();
-    setUser(current);
-    setLoading(false);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const u = authService.login(email, password);
-    if (u) setUser(u);
+    if (u) notifyAuthChanged();
     return u;
   }, []);
 
-  const register = useCallback(async (name: string, email: string, role: UserRole, _password?: string) => {
+  const register = useCallback(async (name: string, email: string, role: UserRole) => {
     const u = authService.register(name, email, role);
-    if (u) setUser(u);
+    if (u) notifyAuthChanged();
     return u;
   }, []);
 
   const logout = useCallback(async () => {
     authService.logout();
-    setUser(null);
+    notifyAuthChanged();
   }, []);
 
   const refreshUser = useCallback(async () => {
-    setUser(authService.getCurrentUser());
+    notifyAuthChanged();
   }, []);
 
   return (

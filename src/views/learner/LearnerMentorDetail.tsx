@@ -208,7 +208,7 @@ export function LearnerMentorDetailPage() {
 
       <Modal open={requestOpen} onClose={() => setRequestOpen(false)} title="Request Mentorship Session">
         <div className="space-y-4">
-          <p className="text-sm text-ink-400">Request a mentorship session with {mentor.user.name}. They'll review and accept or decline your request.</p>
+          <p className="text-sm text-ink-400">Request a mentorship session with {mentor.user.name}. They&apos;ll review and accept or decline your request.</p>
           <Input label="Session title" value={sessionTitle} onChange={(e) => setSessionTitle(e.target.value)} placeholder="e.g., React Component Architecture" />
           <Textarea label="What do you want to cover?" rows={3} value={sessionDesc} onChange={(e) => setSessionDesc(e.target.value)} placeholder="Describe what you'd like to learn or discuss..." />
           <Input label="Preferred date & time" type="datetime-local" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />

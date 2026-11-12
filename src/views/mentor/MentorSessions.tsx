@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
@@ -62,7 +63,16 @@ export function MentorSessionsPage() {
               <div key={session.id} className="card p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1">
-                    {learner && <img src={learner.avatar} alt={learner.name} className="w-12 h-12 rounded-full" />}
+                    {learner?.avatar && (
+                      <Image
+                        src={learner.avatar}
+                        alt={learner.name}
+                        width={48}
+                        height={48}
+                        unoptimized
+                        className="w-12 h-12 rounded-full"
+                      />
+                    )}
                     <div className="flex-1">
                       <h3 className="font-semibold text-ink">{session.title}</h3>
                       <p className="text-sm text-ink-400 mt-0.5">{session.description}</p>

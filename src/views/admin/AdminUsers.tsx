@@ -6,8 +6,7 @@ import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Tabs, EmptyState } from '@/components/ui';
+import { EmptyState } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
 import { Search, Trash2, Users } from 'lucide-react';
 import { getUsersByRole, deleteUser, getMentorProfile, getLearnerProfile } from '@/services/dataService';

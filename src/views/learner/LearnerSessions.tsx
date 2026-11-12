@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -68,7 +68,16 @@ export function LearnerSessionsPage() {
                   <div className="flex items-start gap-4 flex-1">
                     {mentor && (
                       <Link href={`/learner/mentors/${mentor.user.id}`}>
-                        <img src={mentor.user.avatar} alt={mentor.user.name} className="w-12 h-12 rounded-full" />
+                        {mentor.user.avatar && (
+                          <Image
+                            src={mentor.user.avatar}
+                            alt={mentor.user.name}
+                            width={48}
+                            height={48}
+                            unoptimized
+                            className="w-12 h-12 rounded-full"
+                          />
+                        )}
                       </Link>
                     )}
                     <div className="flex-1">

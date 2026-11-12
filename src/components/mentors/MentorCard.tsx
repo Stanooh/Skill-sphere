@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Star, MapPin, Bookmark, Calendar } from 'lucide-react';
-import type { Mentor, MentorRecommendation } from '@/types';
+import type { Mentor } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, useSyncExternalStore, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -10,9 +10,11 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui';
 import { Send, Sparkles, Trash2, ArrowRight, UserCircle, Target, Clock } from 'lucide-react';
-import type { CareerAdvisorMessage, LearnerContext } from '@/types';
+import type { LearnerContext } from '@/types';
 import {
-  getConversation,
+  subscribeToConversation,
+  getConversationSnapshot,
+  getServerConversationSnapshot,
   getWelcomeMessage,
   askQuestion,
   clearConversation,
@@ -31,21 +33,19 @@ const suggestedQuestions = [
 export function LearnerCareerAdvisorPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [messages, setMessages] = useState<CareerAdvisorMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const existing = getConversation();
-    if (existing.length === 0 && user) {
-      const welcome = getWelcomeMessage(user.name);
-      setMessages([welcome]);
-    } else {
-      setMessages(existing);
-    }
-  }, [user, refreshKey]);
+  const storedMessages = useSyncExternalStore(
+    subscribeToConversation,
+    getConversationSnapshot,
+    getServerConversationSnapshot
+  );
+  const messages = useMemo(
+    () => storedMessages.length === 0 && user ? [getWelcomeMessage(user.name)] : storedMessages,
+    [storedMessages, user]
+  );
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -82,7 +82,6 @@ export function LearnerCareerAdvisorPage() {
     // Simulated thinking delay
     setTimeout(() => {
       askQuestion(question, context);
-      setMessages(getConversation());
       setLoading(false);
     }, 800);
   };
@@ -93,9 +92,6 @@ export function LearnerCareerAdvisorPage() {
 
   const handleClear = () => {
     clearConversation();
-    const welcome = getWelcomeMessage(user.name);
-    setMessages([welcome]);
-    setRefreshKey((k) => k + 1);
   };
 
   return (

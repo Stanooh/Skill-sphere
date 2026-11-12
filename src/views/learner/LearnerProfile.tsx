@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -8,21 +9,16 @@ import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea, Select } from '@/components/ui/Input';
 import { SkillSelector } from '@/components/profile/SkillSelector';
-import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui';
 import {
   Check,
-  GraduationCap,
   Eye,
   EyeOff,
   Trash2,
   Star,
-  Mail,
   Building,
-  User,
-  Clock,
 } from 'lucide-react';
-import type { SkillLevel, StudentRecommendation, RecommendationApprovalStatus, EmployerContactRequest } from '@/types';
+import type { SkillLevel, RecommendationApprovalStatus } from '@/types';
 import {
   getLearnerProfile,
   updateLearnerProfile,
@@ -65,14 +61,9 @@ export function LearnerProfilePage() {
     profile?.employerVisibility ?? false
   );
 
-  const [recommendations, setRecommendations] = useState<StudentRecommendation[]>([]);
-  const [contactRequests, setContactRequests] = useState<EmployerContactRequest[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-    setRecommendations(getRecommendationsForStudent(user.id));
-    setContactRequests(getEmployerContactRequestsForLearner(user.id));
-  }, [user]);
+  const [, setRecommendationsRefreshKey] = useState(0);
+  const recommendations = user ? getRecommendationsForStudent(user.id) : [];
+  const contactRequests = user ? getEmployerContactRequestsForLearner(user.id) : [];
 
   if (!user) return null;
 
@@ -113,7 +104,7 @@ export function LearnerProfilePage() {
     status: RecommendationApprovalStatus
   ) => {
     updateStudentApproval(recId, user.id, status);
-    setRecommendations(getRecommendationsForStudent(user.id));
+    setRecommendationsRefreshKey((key) => key + 1);
     show(
       status === 'accepted'
         ? 'Recommendation accepted. It is now displayed on your public profile.'
@@ -420,8 +411,8 @@ export function LearnerProfilePage() {
           {recommendations.length === 0 ? (
             <div className="p-6 text-center bg-ink-100 rounded-lg text-ink-400 text-sm">
               <Star className="w-6 h-6 mx-auto mb-2 text-ink-300" />
-              You haven't received any mentor recommendations yet. When a mentor you've worked with
-              submits one, you'll be able to review and approve it here.
+              You haven&apos;t received any mentor recommendations yet. When a mentor you&apos;ve worked with
+              submits one, you&apos;ll be able to review and approve it here.
             </div>
           ) : (
             <div className="space-y-4">
@@ -436,11 +427,16 @@ export function LearnerProfilePage() {
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={mentor?.avatar}
-                          alt={mentor?.name ?? 'Mentor'}
-                          className="w-8 h-8 rounded-full"
-                        />
+                        {mentor?.avatar && (
+                          <Image
+                            src={mentor.avatar}
+                            alt={mentor.name}
+                            width={32}
+                            height={32}
+                            unoptimized
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
                         <div>
                           <p className="text-sm font-semibold text-ink">{mentor?.name ?? 'Mentor'}</p>
                           <p className="text-xs text-ink-400">
@@ -468,7 +464,7 @@ export function LearnerProfilePage() {
                       </div>
                     </div>
 
-                    <p className="text-sm text-ink-400 italic">"{rec.recommendation}"</p>
+                    <p className="text-sm text-ink-400 italic">&quot;{rec.recommendation}&quot;</p>
 
                     {rec.strengths.length > 0 && (
                       <div className="flex flex-wrap gap-1">
@@ -545,7 +541,7 @@ export function LearnerProfilePage() {
                     <span className="badge bg-ink-200 text-ink-400 text-xs uppercase">{req.status}</span>
                   </div>
                   <p className="text-sm text-ink-400 bg-ink-50/50 p-2.5 rounded-lg border border-ink-200">
-                    "{req.message}"
+                    &quot;{req.message}&quot;
                   </p>
                 </div>
               ))}

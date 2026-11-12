@@ -30,12 +30,13 @@ export function MentorAccessGuard({ children, allowPending = false, excludeAppro
 
     if (!user) {
       router.replace('/login');
-      setState({ phase: 'redirect' });
       return;
     }
 
-    (async () => {
+    let active = true;
+    const resolveAccess = async () => {
       const result = await checkMentorAccess();
+      if (!active) return;
       if (result.hasAccess) {
         if (excludeApproved) {
           router.replace('/mentor');
@@ -55,10 +56,15 @@ export function MentorAccessGuard({ children, allowPending = false, excludeAppro
       } else {
         setState({ phase: 'denied', status: result.status, application: result.application });
       }
-    })();
+    };
+
+    void resolveAccess();
+    return () => {
+      active = false;
+    };
   }, [user, loading, router, allowPending, excludeApproved]);
 
-  if (state.phase === 'loading' || state.phase === 'redirect') {
+  if (!user || state.phase === 'loading' || state.phase === 'redirect') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink-50">
         <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />

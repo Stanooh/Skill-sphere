@@ -2,13 +2,12 @@
 
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui';
-import { BarChart3, Users, CalendarDays, BookOpen, TrendingUp, Star, ClipboardList, GraduationCap, Compass } from 'lucide-react';
-import { getPlatformStats, getAllMentors, getUsersByRole, getWorkshops, getSkills } from '@/services/dataService';
+import { Users, CalendarDays, BookOpen, TrendingUp, Star, ClipboardList, GraduationCap, Compass } from 'lucide-react';
+import { getPlatformStats, getAllMentors, getWorkshops, getSkills } from '@/services/dataService';
 
 export function AdminReportsPage() {
   const stats = getPlatformStats();
   const mentors = getAllMentors();
-  const learners = getUsersByRole('learner');
   const workshops = getWorkshops();
   const skills = getSkills();
 
@@ -29,10 +28,6 @@ export function AdminReportsPage() {
   // Skills distribution
   const skillUsage = skills.map((skill) => {
     const mentorCount = mentors.filter((m) => m.skills.some((s) => s.id === skill.id)).length;
-    const learnerCount = learners.filter((l) => {
-      // Need to check learner profiles — approximate via getLearnerProfile
-      return true;
-    }).length;
     return { name: skill.name, category: skill.category, mentorCount };
   }).sort((a, b) => b.mentorCount - a.mentorCount);
 

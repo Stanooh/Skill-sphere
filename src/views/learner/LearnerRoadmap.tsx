@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
-import { Input, Textarea, Select } from '@/components/ui/Input';
+import { Input, Select } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui';
 import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
 import { Modal } from '@/components/ui/Modal';
@@ -22,14 +22,18 @@ import {
 
 export function LearnerRoadmapPage() {
   const { user } = useAuth();
+  if (!user) return null;
+
+  return <LearnerRoadmapContent key={user.id} userId={user.id} />;
+}
+
+function LearnerRoadmapContent({ userId }: { userId: string }) {
   const { show } = useToast();
   const [genOpen, setGenOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  if (!user) return null;
-
-  const roadmap = getRoadmap(user.id);
-  const profile = getLearnerProfile(user.id);
+  const roadmap = getRoadmap(userId);
+  const profile = getLearnerProfile(userId);
   const skills = getSkills();
 
   const [goal, setGoal] = useState(profile?.learningGoal ?? '');
@@ -43,7 +47,7 @@ export function LearnerRoadmapPage() {
       return;
     }
     generateRoadmap({
-      learnerId: user.id,
+      learnerId: userId,
       goal,
       currentLevel,
       existingSkills: profile?.skillIds ?? [],

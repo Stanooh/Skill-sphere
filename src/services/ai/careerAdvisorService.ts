@@ -6,19 +6,22 @@ interface StoredConversation {
   messages: CareerAdvisorMessage[];
 }
 
+const EMPTY_CONVERSATION: CareerAdvisorMessage[] = [];
+const conversationListeners = new Set<() => void>();
+let cachedRaw: string | null | undefined;
+let cachedMessages = EMPTY_CONVERSATION;
+
 function loadConversation(): CareerAdvisorMessage[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return (JSON.parse(raw) as StoredConversation).messages;
-  } catch {
-    // fall through
-  }
-  return [];
+  return getConversationSnapshot();
 }
 
 function saveConversation(messages: CareerAdvisorMessage[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages }));
+    const raw = JSON.stringify({ messages });
+    localStorage.setItem(STORAGE_KEY, raw);
+    cachedRaw = raw;
+    cachedMessages = messages;
+    conversationListeners.forEach((listener) => listener());
   } catch {
     // ignore
   }
@@ -26,6 +29,55 @@ function saveConversation(messages: CareerAdvisorMessage[]): void {
 
 export function getConversation(): CareerAdvisorMessage[] {
   return loadConversation();
+}
+
+export function subscribeToConversation(onChange: () => void): () => void {
+  conversationListeners.add(onChange);
+  if (typeof window !== 'undefined') {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY || event.key === null) {
+        cachedRaw = undefined;
+        onChange();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      conversationListeners.delete(onChange);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }
+  return () => {
+    conversationListeners.delete(onChange);
+  };
+}
+
+export function getConversationSnapshot(): CareerAdvisorMessage[] {
+  if (typeof window === 'undefined') return EMPTY_CONVERSATION;
+  let raw: string | null;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return EMPTY_CONVERSATION;
+  }
+  if (raw === cachedRaw) return cachedMessages;
+
+  cachedRaw = raw;
+  if (!raw) {
+    cachedMessages = EMPTY_CONVERSATION;
+    return cachedMessages;
+  }
+
+  try {
+    cachedMessages = (JSON.parse(raw) as StoredConversation).messages;
+    return cachedMessages;
+  } catch {
+    cachedMessages = EMPTY_CONVERSATION;
+    return cachedMessages;
+  }
+}
+
+export function getServerConversationSnapshot(): CareerAdvisorMessage[] {
+  return EMPTY_CONVERSATION;
 }
 
 export function clearConversation(): void {
@@ -114,7 +166,6 @@ const responseGroups: KeywordGroup[] = [
   {
     keywords: ['fullstack', 'full-stack', 'full stack'],
     handler: (ctx) => {
-      const skills = ctx.skills.map((s) => s.name);
       return `To become a full-stack developer from your current position (${skillNames(ctx)}), you'll need to add backend skills. Your frontend knowledge (${topSkill(ctx)}) is a strong start. I'd recommend learning:\n\n• Node.js and Express for backend APIs\n• PostgreSQL for database management\n• Authentication patterns (JWT, sessions)\n• Deployment (Docker, cloud platforms)\n\nThis will let you build complete applications end-to-end. You can generate a full-stack developer roadmap to get a structured plan with milestones.`;
     },
   },
