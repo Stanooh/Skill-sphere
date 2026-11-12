@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import type { User, UserRole } from '@/types';
 import * as authService from '@/services/authService';
 import { seedDemoApplications } from '@/services/mentorVerificationService';
+import { seedMockRecommendations } from '@/services/recommendationService';
 
 interface AuthContextValue {
   user: User | null;
@@ -12,7 +13,6 @@ interface AuthContextValue {
   register: (name: string, email: string, role: UserRole, password?: string) => Promise<User | null>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  isSupabaseAuth: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     seedDemoApplications();
+    seedMockRecommendations();
     const current = authService.getCurrentUser();
     setUser(current);
     setLoading(false);
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, isSupabaseAuth: false }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

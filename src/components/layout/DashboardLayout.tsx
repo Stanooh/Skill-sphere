@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Sparkles,
   Wand2,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
@@ -52,6 +53,7 @@ const mentorNav: NavItem[] = [
   { to: '/mentor/requests', label: 'Mentorship Requests', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
   { to: '/mentor/sessions', label: 'Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },
   { to: '/mentor/workshops', label: 'My Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
+  { to: '/mentor/student-recommendations', label: 'Student Recommendations', icon: <Star className="w-[18px] h-[18px]" /> },
   { to: '/mentor/profile', label: 'My Profile', icon: <UserCircle className="w-[18px] h-[18px]" /> },
 ];
 
@@ -64,6 +66,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/workshops', label: 'Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { to: '/admin/reports', label: 'Reports', icon: <BarChart3 className="w-[18px] h-[18px]" /> },
   { to: '/admin/verification', label: 'Verification Review', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
+  { to: '/admin/recommendations', label: 'Recommendations', icon: <Star className="w-[18px] h-[18px]" /> },
 ];
 
 const restrictedNav: NavItem[] = [

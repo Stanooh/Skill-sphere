@@ -26,6 +26,7 @@ export function PublicBrowseLayout({
             <div className="hidden md:flex items-center gap-1 mr-2">
               <Link href="/skills" className="btn-ghost text-sm">Explore Skills</Link>
               <Link href="/mentors" className="btn-ghost text-sm">Find Mentors</Link>
+              <Link href="/talent" className="btn-ghost text-sm">Find Talent</Link>
               <Link href="/workshops" className="btn-ghost text-sm">Workshops</Link>
               <Link href="/roadmaps" className="btn-ghost text-sm">Roadmaps</Link>
               <Link href="/about" className="btn-ghost text-sm">About</Link>

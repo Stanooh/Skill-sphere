@@ -9,8 +9,11 @@ import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { SkillSelector } from '@/components/profile/SkillSelector';
 import { getMentorProfile, updateMentorProfile, getSkills } from '@/services/dataService';
+import { deleteMentorAccount } from '@/services/accountService';
+import { DeleteAccountDialog } from '@/components/account/DeleteAccountDialog';
+import { useRouter } from 'next/navigation';
 import type { Availability, SkillLevel } from '@/types';
-import { Check } from 'lucide-react';
+import { Check, Trash2 } from 'lucide-react';
 
 const availabilityOptions: { value: Availability; label: string }[] = [
   { value: 'available', label: 'Available' },
@@ -19,9 +22,11 @@ const availabilityOptions: { value: Availability; label: string }[] = [
 ];
 
 export function MentorProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { show } = useToast();
+  const router = useRouter();
   const [saved, setSaved] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [certInput, setCertInput] = useState('');
   const [areaInput, setAreaInput] = useState('');
 
@@ -163,7 +168,37 @@ export function MentorProfilePage() {
             {saved ? <><Check className="w-4 h-4" /> Saved!</> : 'Save Profile'}
           </Button>
         </div>
+
+        {/* Danger Zone */}
+        <div className="card p-6 border border-red-800 bg-red-950/10 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-red-400">Danger Zone</h3>
+            <p className="text-sm text-ink-400 mt-1">
+              If you no longer wish to use SkillSphere, you can delete your account and associated
+              personal information. This action cannot be undone.
+            </p>
+          </div>
+
+          <Button
+            className="!bg-red-600 hover:!bg-red-700 !text-white !border-0"
+            size="sm"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <Trash2 className="w-4 h-4" /> Delete Your Account
+          </Button>
+        </div>
       </div>
+
+      <DeleteAccountDialog
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={async () => {
+          deleteMentorAccount(user.id);
+          await logout();
+          router.push('/');
+        }}
+        userName={user.name}
+      />
     </DashboardLayout>
   );
 }

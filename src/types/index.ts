@@ -325,7 +325,7 @@ export interface MentorVerificationHistoryDB {
   created_at: string;
 }
 
-// --- Supabase-backed mentor verification workflow types ---
+// --- Mentor verification workflow types ---
 
 export type MentorApplicationStatus =
   | 'not_applied'
@@ -389,4 +389,36 @@ export interface MentorAccessState {
   application?: MentorApplication;
   reason?: string;
   redirectTo: string;
+}
+
+// --- Student Recommendation types ---
+
+export type RecommendationApprovalStatus = 'pending' | 'accepted' | 'declined';
+
+export interface StudentRecommendation {
+  id: string;
+  mentorId: string;
+  studentId: string;
+  strengths: string[];
+  technicalSkills: string[];
+  communicationAssessment: string;
+  problemSolvingAssessment: string;
+  achievements: string[];
+  careerAreas: string[];
+  recommendation: string;
+  studentApprovalStatus: RecommendationApprovalStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Admin action log ---
+
+export interface AdminActionLog {
+  id: string;
+  adminId: string;
+  action: string;
+  targetId: string;
+  targetType: 'recommendation' | 'profile' | 'contactRequest';
+  note?: string;
+  createdAt: string;
 }

@@ -1,5 +1,15 @@
 import Link from 'next/link';
-import { GraduationCap, Compass, MapPin, TrendingUp, Users, ArrowRight, CheckCircle2 } from 'lucide-react';
+import {
+  GraduationCap,
+  Compass,
+  MapPin,
+  TrendingUp,
+  Users,
+  ArrowRight,
+  CheckCircle2,
+  Briefcase,
+  Star,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export function LandingPage() {
@@ -8,16 +18,17 @@ export function LandingPage() {
       {/* Nav */}
       <nav className="sticky top-0 z-30 bg-ink-800/90 backdrop-blur border-b border-ink-200">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
             <span className="text-lg font-bold text-ink tracking-tight">SkillSphere</span>
-          </div>
+          </Link>
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-1 mr-2">
               <Link href="/skills" className="btn-ghost text-sm">Explore Skills</Link>
               <Link href="/mentors" className="btn-ghost text-sm">Find Mentors</Link>
+              <Link href="/talent" className="btn-ghost text-sm font-medium text-brand-200 hover:text-white">Find Talent</Link>
               <Link href="/workshops" className="btn-ghost text-sm">Workshops</Link>
               <Link href="/roadmaps" className="btn-ghost text-sm">Roadmaps</Link>
               <Link href="/about" className="btn-ghost text-sm">About</Link>
@@ -33,7 +44,7 @@ export function LandingPage() {
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-900 text-brand-200 text-sm font-medium mb-6">
             <Compass className="w-4 h-4" />
-            Skill-sharing & mentorship platform
+            Skill-sharing, mentorship & talent showcase
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-ink leading-tight mb-5">
             Discover skills. Connect with mentors.{' '}
@@ -49,16 +60,45 @@ export function LandingPage() {
                 Start Learning <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href="/talent">
               <Button variant="secondary" size="lg" className="w-full sm:w-auto">
+                <Briefcase className="w-4 h-4 text-brand" /> Find Talent
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button variant="ghost" size="lg" className="w-full sm:w-auto">
                 Sign In
               </Button>
             </Link>
           </div>
           <div className="flex items-center gap-6 mt-8 text-sm text-ink-400">
             <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand" /> Free to start</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand" /> No credit card</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand" /> Mentor-vetted talent</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand" /> No credit card required</span>
           </div>
+        </div>
+      </section>
+
+      {/* Employer Talent Showcase banner */}
+      <section className="bg-ink-800 py-12 border-y border-ink-200">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-900 text-brand-200 text-xs font-semibold mb-2">
+              <Star className="w-3.5 h-3.5" /> For Employers & Recruiters
+            </div>
+            <h2 className="text-2xl font-bold text-ink mb-2">
+              Discover emerging talent endorsed by mentors
+            </h2>
+            <p className="text-sm text-ink-400">
+              Skip the resume guesswork. Review motivated candidates with proven skill roadmaps, real achievements,
+              and genuine endorsements from verified industry mentors.
+            </p>
+          </div>
+          <Link href="/talent" className="shrink-0 w-full md:w-auto">
+            <Button size="lg" fullWidth>
+              Browse Talent Directory <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
         </div>
       </section>
 
@@ -73,7 +113,7 @@ export function LandingPage() {
             {[
               { icon: <Users className="w-6 h-6" />, step: '01', title: 'Build your profile', desc: 'Select your skills, set your current level, and define your learning goal. Your profile drives everything that follows.' },
               { icon: <Compass className="w-6 h-6" />, step: '02', title: 'Get matched with mentors', desc: 'Our recommendation engine evaluates mentor expertise against your skills and goals to surface the best matches.' },
-              { icon: <TrendingUp className="w-6 h-6" />, step: '03', title: 'Follow your roadmap', desc: 'Track milestones, attend workshops, and book sessions — all mapped to your personal learning journey.' },
+              { icon: <TrendingUp className="w-6 h-6" />, step: '03', title: 'Follow your roadmap & get discovered', desc: 'Track milestones, book sessions, earn mentor endorsements, and showcase your abilities to employers.' },
             ].map((item) => (
               <div key={item.step} className="card p-6">
                 <div className="w-12 h-12 rounded-xl bg-brand-900 text-brand-300 flex items-center justify-center mb-4">
@@ -144,9 +184,14 @@ export function LandingPage() {
           <p className="text-ink-400 mb-8 max-w-xl mx-auto">
             Join SkillSphere today and connect with mentors who can help you reach your goals.
           </p>
-          <Link href="/register">
-            <Button size="lg">Create your free account</Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row justify-center gap-3">
+            <Link href="/register">
+              <Button size="lg">Create your free account</Button>
+            </Link>
+            <Link href="/talent">
+              <Button variant="secondary" size="lg">Find Emerging Talent</Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -159,7 +204,13 @@ export function LandingPage() {
             </div>
             <span className="text-sm font-semibold text-ink-400">SkillSphere</span>
           </div>
-          <p className="text-sm text-ink-400">Skill-sharing, mentorship, and personalized learning.</p>
+          <div className="flex items-center gap-4 text-xs text-ink-400">
+            <Link href="/talent" className="hover:text-ink">Find Talent</Link>
+            <Link href="/mentors" className="hover:text-ink">Find Mentors</Link>
+            <Link href="/skills" className="hover:text-ink">Skills</Link>
+            <Link href="/about" className="hover:text-ink">About</Link>
+          </div>
+          <p className="text-xs text-ink-400">Skill-sharing, mentorship, and personalized learning.</p>
         </div>
       </footer>
     </div>

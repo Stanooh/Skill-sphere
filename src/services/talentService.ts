@@ -1,25 +1,12 @@
 import type { TalentProfile, EmployerContactRequest, Skill, Mentor, User, LearnerProfile } from '@/types';
-import { getDb, saveDb } from './dataService';
-
-const CONTACTS_KEY = 'skillsphere_employer_contacts';
-
-function loadContacts(): EmployerContactRequest[] {
-  try {
-    const raw = localStorage.getItem(CONTACTS_KEY);
-    if (raw) return JSON.parse(raw) as EmployerContactRequest[];
-  } catch {
-    // fall through
-  }
-  return [];
-}
-
-function saveContacts(contacts: EmployerContactRequest[]): void {
-  try {
-    localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
-  } catch {
-    // storage unavailable — keep in memory only
-  }
-}
+import { getDb } from './dataService';
+import { getAcceptedRecommendationsForStudent } from './recommendationService';
+export {
+  createEmployerContactRequest,
+  getEmployerContactRequestsForLearner,
+  getAllEmployerContactRequests,
+  updateContactRequestStatus,
+} from './contactRequestService';
 
 export function getTalentProfiles(): TalentProfile[] {
   const db = getDb();
@@ -54,23 +41,59 @@ export function getTalentProfileById(userId: string): TalentProfile | undefined 
   return getTalentProfiles().find((t) => t.user.id === userId);
 }
 
-export function searchTalent(query: string, skillId?: string): TalentProfile[] {
+export interface TalentFilterOptions {
+  query?: string;
+  skillId?: string;
+  careerArea?: string;
+  sortBy?: 'recent' | 'skills' | 'recommended';
+}
+
+export function searchTalentWithOptions(options: TalentFilterOptions): TalentProfile[] {
   let profiles = getTalentProfiles();
-  if (query) {
-    const q = query.toLowerCase();
+
+  if (options.query) {
+    const q = options.query.toLowerCase().trim();
+    profiles = profiles.filter((t) => {
+      const nameMatch = (t.user.name || '').toLowerCase().includes(q);
+      const bioMatch = (t.profile.bio || '').toLowerCase().includes(q);
+      const locMatch = (t.profile.location || '').toLowerCase().includes(q);
+      const goalMatch = (t.profile.learningGoal || '').toLowerCase().includes(q);
+      const skillMatch = t.skills.some((s) => (s.name || '').toLowerCase().includes(q));
+      return nameMatch || bioMatch || locMatch || goalMatch || skillMatch;
+    });
+  }
+
+  if (options.skillId) {
+    profiles = profiles.filter((t) => t.profile.skillIds.includes(options.skillId!));
+  }
+
+  if (options.careerArea) {
+    const areaLower = options.careerArea.toLowerCase();
     profiles = profiles.filter(
       (t) =>
-        t.user.name.toLowerCase().includes(q) ||
-        t.profile.bio.toLowerCase().includes(q) ||
-        t.profile.location.toLowerCase().includes(q) ||
-        t.profile.learningGoal.toLowerCase().includes(q) ||
-        t.skills.some((s) => s.name.toLowerCase().includes(q))
+        (t.profile.learningGoal || '').toLowerCase().includes(areaLower) ||
+        (t.profile.bio || '').toLowerCase().includes(areaLower)
     );
   }
-  if (skillId) {
-    profiles = profiles.filter((t) => t.profile.skillIds.includes(skillId));
+
+  if (options.sortBy === 'skills') {
+    profiles.sort((a, b) => b.skills.length - a.skills.length);
+  } else if (options.sortBy === 'recommended') {
+    profiles.sort((a, b) => {
+      const recsA = getAcceptedRecommendationsForStudent(a.user.id).length;
+      const recsB = getAcceptedRecommendationsForStudent(b.user.id).length;
+      return recsB - recsA;
+    });
+  } else {
+    // recent by user.createdAt
+    profiles.sort((a, b) => new Date(b.user.createdAt).getTime() - new Date(a.user.createdAt).getTime());
   }
+
   return profiles;
+}
+
+export function searchTalent(query: string, skillId?: string): TalentProfile[] {
+  return searchTalentWithOptions({ query, skillId });
 }
 
 export function getTalentSkills(): Skill[] {
@@ -81,38 +104,4 @@ export function getTalentSkills(): Skill[] {
       .flatMap((p) => p.skillIds)
   );
   return db.skills.filter((s) => visibleLearnerSkillIds.has(s.id));
-}
-
-export function createEmployerContactRequest(
-  request: Omit<EmployerContactRequest, 'id' | 'createdAt' | 'status'>
-): EmployerContactRequest | undefined {
-  const talent = getTalentProfileById(request.learnerId);
-  if (!talent) return undefined;
-
-  const contacts = loadContacts();
-  const newRequest: EmployerContactRequest = {
-    ...request,
-    id: `ecr-${Date.now()}`,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-  };
-  contacts.push(newRequest);
-  saveContacts(contacts);
-
-  const db = getDb();
-  db.notifications.push({
-    id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    userId: request.learnerId,
-    title: 'New Employer Contact Request',
-    message: `${request.employerName} from ${request.companyName} is interested in connecting with you.`,
-    read: false,
-    createdAt: new Date().toISOString(),
-  });
-  saveDb();
-
-  return newRequest;
-}
-
-export function getEmployerContactRequestsForLearner(learnerId: string): EmployerContactRequest[] {
-  return loadContacts().filter((c) => c.learnerId === learnerId);
 }

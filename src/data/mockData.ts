@@ -347,7 +347,7 @@ export const mockRoadmaps: Roadmap[] = [
       { id: 'm-3', title: 'Next.js Framework', description: 'Build SSR/SSG applications, routing, and API routes with Next.js.', order: 3, completed: false },
       { id: 'm-4', title: 'Backend Fundamentals', description: 'Node.js, Express, and building REST APIs.', order: 4, completed: false },
       { id: 'm-5', title: 'Databases & SQL', description: 'PostgreSQL, schema design, and database queries.', order: 5, completed: false },
-      { id: 'm-6', title: 'Authentication', description: 'Implement auth with JWT, sessions, and Supabase Auth.', order: 6, completed: false },
+      { id: 'm-6', title: 'Authentication', description: 'Implement auth with JWT, sessions, and secure auth patterns.', order: 6, completed: false },
       { id: 'm-7', title: 'Deployment', description: 'Deploy full-stack apps to production with CI/CD.', order: 7, completed: false },
     ],
     createdAt: '2025-08-20T10:00:00Z',
