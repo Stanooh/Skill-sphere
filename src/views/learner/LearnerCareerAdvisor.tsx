@@ -1,24 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, useSyncExternalStore, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui';
 import { Send, Sparkles, Trash2, ArrowRight, UserCircle, Target, Clock } from 'lucide-react';
-import type { LearnerContext } from '@/types';
+import type { CareerAdvisorMessage, LearnerContext } from '@/types';
 import {
-  subscribeToConversation,
-  getConversationSnapshot,
-  getServerConversationSnapshot,
   getWelcomeMessage,
-  askQuestion,
-  clearConversation,
 } from '@/services/ai/careerAdvisorService';
+import { askCareerAdvisor } from '@/services/ai/aiFeatureClient';
 import { getLearnerProfile, getSkillsByIds, getRoadmap, getProgress } from '@/services/dataService';
 
 const suggestedQuestions = [
@@ -32,26 +29,44 @@ const suggestedQuestions = [
 
 export function LearnerCareerAdvisorPage() {
   const { user } = useAuth();
+  const { show } = useToast();
   const router = useRouter();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string>();
+  const [messages, setMessages] = useState<CareerAdvisorMessage[]>(() =>
+    user ? [getWelcomeMessage(user.name)] : []
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const storedMessages = useSyncExternalStore(
-    subscribeToConversation,
-    getConversationSnapshot,
-    getServerConversationSnapshot
-  );
-  const messages = useMemo(
-    () => storedMessages.length === 0 && user ? [getWelcomeMessage(user.name)] : storedMessages,
-    [storedMessages, user]
-  );
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void fetch('/api/ai/career-conversations')
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Could not load conversations.')))
+      .then((result: { conversations: Array<{ id: string; career_messages: Array<{ role: 'user' | 'assistant'; content: string; created_at: string }> }> }) => {
+        if (!active) return;
+        const latest = result.conversations[0];
+        if (!latest) return;
+        setConversationId(latest.id);
+        setMessages(latest.career_messages.map((message, index) => ({
+          id: `${latest.id}-${index}`,
+          role: message.role,
+          content: message.content,
+          createdAt: message.created_at,
+        })));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (!user) return null;
 
@@ -72,26 +87,37 @@ export function LearnerCareerAdvisorPage() {
 
   const profileComplete = profile?.profileComplete ?? false;
 
-  const handleSend = (e: FormEvent) => {
+  const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
     setLoading(true);
     const question = input.trim();
     setInput('');
-
-    // Simulated thinking delay
-    setTimeout(() => {
-      askQuestion(question, context);
+    setMessages((current) => [
+      ...current,
+      { id: `user-${Date.now()}`, role: 'user', content: question, createdAt: new Date().toISOString() },
+    ]);
+    try {
+      const result = await askCareerAdvisor(question, conversationId);
+      setConversationId(result.conversationId);
+      setMessages((current) => [...current, result.message]);
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'Could not get a career response.', 'error');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   const handleSuggested = (q: string) => {
     setInput(q);
   };
 
-  const handleClear = () => {
-    clearConversation();
+  const handleClear = async () => {
+    if (conversationId) {
+      await fetch(`/api/ai/career-conversations/${conversationId}`, { method: 'DELETE' });
+    }
+    setConversationId(undefined);
+    setMessages(user ? [getWelcomeMessage(user.name)] : []);
   };
 
   return (

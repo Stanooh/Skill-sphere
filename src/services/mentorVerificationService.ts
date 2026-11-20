@@ -48,7 +48,46 @@ type DbSkill = {
 };
 
 function reportError(operation: string, error: unknown): void {
-  console.error(`[mentor-verification] ${operation} failed`, error);
+  const supabaseError = (error ?? {}) as {
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+    code?: unknown;
+    status?: unknown;
+  };
+  let raw: unknown = error;
+  try {
+    raw = error instanceof Error
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : JSON.parse(JSON.stringify(error));
+  } catch {
+    raw = String(error);
+  }
+  console.error(`[mentor-verification] ${operation} failed`, {
+    operation,
+    raw,
+    message: typeof supabaseError?.message === 'string' ? supabaseError.message : undefined,
+    details: typeof supabaseError?.details === 'string' ? supabaseError.details : undefined,
+    hint: typeof supabaseError?.hint === 'string' ? supabaseError.hint : undefined,
+    code: typeof supabaseError?.code === 'string' ? supabaseError.code : undefined,
+    status: typeof supabaseError?.status === 'number' ? supabaseError.status : undefined,
+  });
+}
+
+function getUserFacingSupabaseError(error: unknown, fallback: string): string {
+  const supabaseError = error as {
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+    code?: unknown;
+  } | null;
+  const message = typeof supabaseError?.message === 'string' ? supabaseError.message.trim() : '';
+  const details = typeof supabaseError?.details === 'string' ? supabaseError.details.trim() : '';
+  const code = typeof supabaseError?.code === 'string' ? supabaseError.code.trim() : '';
+  if (message) {
+    return [message, details, code ? `(${code})` : ''].filter(Boolean).join(' ');
+  }
+  return fallback;
 }
 
 function mapApplication(row: DbApplication): MentorApplication {
@@ -181,16 +220,29 @@ export async function createOrUpdateApplication(
   return mapApplication(data as DbApplication);
 }
 
-export async function submitApplication(applicationId: string): Promise<boolean> {
+export async function submitApplication(
+  applicationId: string,
+  selectedSkills: { skillId: string; skillName: string }[] = []
+): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient();
+  for (const skill of selectedSkills) {
+    const saved = await upsertSkillVerification(applicationId, skill.skillId, skill.skillName, []);
+    if (!saved) {
+      return { success: false, error: 'The selected skills could not be saved. Please try again.' };
+    }
+  }
+
   const { error } = await supabase.rpc('submit_mentor_application', {
     application_id: applicationId,
   });
   if (error) {
-    reportError('submit application', error);
-    return false;
+    reportError('submit application with existing RPC', error);
+    return {
+      success: false,
+      error: getUserFacingSupabaseError(error, 'The application could not be submitted. Please try again.'),
+    };
   }
-  return true;
+  return { success: true };
 }
 
 export async function upsertSkillVerification(

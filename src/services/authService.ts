@@ -24,6 +24,8 @@ export interface SupabaseAuthResult {
   error?: string;
 }
 
+const LOCAL_EMAIL_REDIRECT_URL = 'http://localhost:3000/auth/callback';
+
 async function getProfileBackedUser(
   supabase: ReturnType<typeof createClient>,
   authUser: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']>
@@ -194,7 +196,7 @@ export async function register(
         name: name.trim(),
         role: safeRole,
       },
-      emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+      emailRedirectTo: LOCAL_EMAIL_REDIRECT_URL,
     },
   });
 
@@ -268,7 +270,7 @@ export async function resendVerificationEmail(email: string): Promise<{ success:
     type: 'signup',
     email: trimmedEmail,
     options: {
-      emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+      emailRedirectTo: LOCAL_EMAIL_REDIRECT_URL,
     },
   });
 

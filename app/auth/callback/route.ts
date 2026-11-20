@@ -5,6 +5,8 @@ import { isUserRole } from '@/lib/supabase/authorization';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const tokenHash = requestUrl.searchParams.get('token_hash');
+  const verificationType = requestUrl.searchParams.get('type');
   const error = requestUrl.searchParams.get('error');
   const errorDescription = requestUrl.searchParams.get('error_description');
 
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (code) {
+  if (code || tokenHash) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
@@ -36,9 +38,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    const exchangeResult = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({
+          type: verificationType === 'signup' || verificationType === 'email'
+            ? 'email'
+            : 'email',
+          token_hash: tokenHash!,
+        });
+    const data = 'data' in exchangeResult ? exchangeResult.data : null;
+    const exchangeError = exchangeResult.error;
 
-    if (!exchangeError && data.user) {
+    if (!exchangeError && data?.user) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -57,16 +68,27 @@ export async function GET(request: NextRequest) {
         targetPath = '/login?error=Your account profile is unavailable.';
       }
 
-      const verifiedRedirect = NextResponse.redirect(new URL(targetPath, requestUrl.origin));
-      // Copy cookies across
-      response.cookies.getAll().forEach((cookie) => {
-        verifiedRedirect.cookies.set(cookie.name, cookie.value);
-      });
-      return verifiedRedirect;
+      return NextResponse.redirect(
+        new URL(targetPath, requestUrl.origin),
+        {
+          headers: response.headers,
+        }
+      );
     }
+
+    return NextResponse.redirect(
+      new URL(
+        `/login?error=${encodeURIComponent(exchangeError?.message || 'Email verification failed or the link has expired.')}`,
+        requestUrl.origin
+      )
+    );
   }
 
-  // Fallback to login with message
-  return NextResponse.redirect(new URL('/login?verified=true', requestUrl.origin));
+  return NextResponse.redirect(
+    new URL(
+      '/login?error=Email verification failed because no valid confirmation parameters were provided.',
+      requestUrl.origin
+    )
+  );
 }
 

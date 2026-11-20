@@ -36,6 +36,7 @@ import {
 } from '@/services/talentService';
 import { deleteLearnerAccount } from '@/services/accountService';
 import { DeleteAccountDialog } from '@/components/account/DeleteAccountDialog';
+import { createClient } from '@/lib/supabase/client';
 
 const steps = ['Basic Info', 'Skills & Interests', 'Skill Levels', 'Learning Goal', 'Preferences'];
 
@@ -69,7 +70,7 @@ export function LearnerProfilePage() {
 
   if (!user) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     updateLearnerProfile(user.id, {
       bio,
       location,
@@ -82,6 +83,26 @@ export function LearnerProfilePage() {
       profileComplete: true,
       employerVisibility,
     });
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('learner_profiles')
+      .upsert({
+        user_id: user.id,
+        bio,
+        location,
+        education,
+        learning_goal: learningGoal,
+        target_timeframe: targetTimeframe,
+        available_hours_per_week: availableHours,
+        skill_ids: selectedSkillIds,
+        skill_levels: skillLevels,
+        profile_complete: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+    if (error) {
+      show('Your local profile saved, but Supabase could not save the AI profile context.', 'error');
+      return;
+    }
     setSaved(true);
     show('Profile saved successfully.', 'success');
     setTimeout(() => setSaved(false), 2000);

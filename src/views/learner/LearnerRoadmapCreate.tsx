@@ -13,11 +13,11 @@ import { Sparkles, Check, ArrowRight, ArrowLeft, Compass, BookOpen, MessageSquar
 import type { SkillLevel, LearningRoadmap, MilestoneStatus } from '@/types';
 import {
   getCareerPaths,
-  generateAIRoadmap,
   getAIRoadmap,
   toggleMilestoneComplete,
   getRoadmapProgress,
 } from '@/services/ai/roadmapService';
+import { generateAiRoadmap } from '@/services/ai/aiFeatureClient';
 import { getLearnerProfile, getSkills } from '@/services/dataService';
 
 const steps = ['Career Path', 'Current Skills', 'Skill Level', 'Interests', 'Availability', 'Timeline'];
@@ -60,46 +60,54 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
     return !!targetTimeline;
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setGenerating(true);
     setGenStep(0);
-
-    const genSteps = [
-      'Analyzing your current skills',
-      'Identifying skill gaps',
-      'Mapping your career path',
-      'Creating learning milestones',
-    ];
-
-    genSteps.forEach((_, idx) => {
-      setTimeout(() => {
-        setGenStep(idx + 1);
-        if (idx === genSteps.length - 1) {
-          setTimeout(() => {
-            const roadmap = generateAIRoadmap({
-              learnerId: userId,
-              careerPath,
-              currentSkills: selectedSkills,
-              skillLevels,
-              interests,
-              hoursPerWeek,
-              targetTimeline,
-            });
-            setGeneratedRoadmap(roadmap);
-            setGenerating(false);
-            show('Your personalized roadmap is ready!', 'success');
-          }, 500);
-        }
-      }, (idx + 1) * 600);
-    });
+    setGenStep(1);
+    try {
+      const startingLevel = selectedSkills.reduce<SkillLevel>((lowest, skillId) => {
+        const level = skillLevels[skillId] ?? 'beginner';
+        const order: SkillLevel[] = ['beginner', 'intermediate', 'advanced', 'expert'];
+        return order.indexOf(level) > order.indexOf(lowest) ? level : lowest;
+      }, 'beginner');
+      setGenStep(3);
+      const roadmap = await generateAiRoadmap({
+        careerGoal: careerPath,
+        startingLevel,
+        targetLevel: 'advanced',
+        availableHoursPerWeek: hoursPerWeek,
+        targetTimeframe: targetTimeline,
+        existingSkills: selectedSkills,
+        interests,
+      });
+      setGenStep(4);
+      setGeneratedRoadmap(roadmap);
+      show('Your personalized roadmap is ready!', 'success');
+    } catch (error) {
+      show(error instanceof Error ? error.message : 'Could not generate your roadmap.', 'error');
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const handleToggleMilestone = (phaseId: string, milestoneId: string) => {
+  const handleToggleMilestone = async (phaseId: string, milestoneId: string) => {
     if (!generatedRoadmap) return;
     const updated = toggleMilestoneComplete(generatedRoadmap.id, phaseId, milestoneId);
     if (updated) {
       setGeneratedRoadmap(updated);
       setRefreshKey((k) => k + 1);
+      void fetch(`/api/ai/roadmaps/${generatedRoadmap.id}/progress`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stageId: phaseId,
+          itemId: milestoneId,
+          itemType: 'milestone',
+          completed: updated.phases
+            .find((phase) => phase.id === phaseId)
+            ?.milestones.find((milestone) => milestone.id === milestoneId)?.status === 'completed',
+        }),
+      });
     }
   };
 

@@ -14,13 +14,12 @@ import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { getSkills } from '@/services/dataService';
-import type { MentorApplication, MentorApplicationSkill } from '@/types';
+import type { MentorApplication } from '@/types';
 import {
   getMyApplication,
   getMyApplicationSkills,
   createOrUpdateApplication,
   submitApplication,
-  saveSelectedApplicationSkills,
 } from '@/services/mentorVerificationService';
 
 export function LearnerApplicationPage() {
@@ -30,7 +29,6 @@ export function LearnerApplicationPage() {
 
   const [loading, setLoading] = useState(true);
   const [application, setApplication] = useState<MentorApplication | null>(null);
-  const [skills, setSkills] = useState<MentorApplicationSkill[]>([]);
 
   const [headline, setHeadline] = useState('');
   const [biography, setBiography] = useState('');
@@ -62,7 +60,6 @@ export function LearnerApplicationPage() {
         }
 
         const skillData = await getMyApplicationSkills(app.id);
-        setSkills(skillData);
         setSelectedSkillIds(skillData.map((s) => s.skillId));
       }
       setLoading(false);
@@ -133,19 +130,13 @@ export function LearnerApplicationPage() {
     const selectedSkills = availableSkills
       .filter((skill) => selectedSkillIds.includes(skill.id))
       .map((skill) => ({ skillId: skill.id, skillName: skill.name }));
-    const skillsSaved = await saveSelectedApplicationSkills(application.id, selectedSkills, skills);
-    if (!skillsSaved) {
-      show('Could not save selected skills. Please try again.', 'error');
-      return;
-    }
-
-    const success = await submitApplication(application.id);
-    if (success) {
+    const result = await submitApplication(application.id, selectedSkills);
+    if (result.success) {
       show('Application submitted for review.', 'success');
       const updated = await getMyApplication();
       if (updated) setApplication(updated);
     } else {
-      show('Could not submit application. Please try again.', 'error');
+      show(result.error || 'Could not submit application. Please try again.', 'error');
     }
   };
 
