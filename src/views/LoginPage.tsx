@@ -1,138 +1,148 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { GraduationCap, AlertCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Button } from '@/components/ui/Button';
+import { validateEmailFormat } from '@/utils/passwordValidation';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 export function LoginPage() {
   const { login } = useAuth();
   const { show } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const errParam = searchParams.get('error');
+    return errParam ? decodeURIComponent(errParam) : '';
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check URL params for verification message
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      show('Email verified successfully! You can now sign in.', 'success');
+    }
+    if (searchParams.get('passwordReset') === 'true') {
+      show('Password updated successfully. You can now sign in.', 'success');
+    }
+  }, [searchParams, show]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !password) {
-      setError('Please enter both email and password.');
+
+    const emailVal = validateEmailFormat(email);
+    if (!emailVal.isValid) {
+      setError(emailVal.error || 'Please enter a valid email address.');
       return;
     }
+
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const user = await login(email, password);
-      if (!user) {
-        setError('No account found with that email. Try a demo account below.');
+      const res = await login(emailVal.normalized, password);
+
+      if (res.error) {
+        if (res.needsEmailVerification) {
+          router.push(`/verify-email?email=${encodeURIComponent(emailVal.normalized)}`);
+          return;
+        }
+        setError(res.error);
         return;
       }
-      show(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
-      const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor' : '/admin';
-      router.push(base);
-    } catch {
-      setError('Sign in failed. Please try again.');
-    }
-  };
 
-  const fillDemo = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('demo1234');
+      if (res.user) {
+        show(`Welcome back, ${res.user.name.split(' ')[0]}!`, 'success');
+        const base =
+          res.user.role === 'learner'
+            ? '/learner'
+            : res.user.role === 'mentor'
+              ? '/mentor/apply'
+              : '/admin/dashboard';
+        const nextPath = searchParams.get('next');
+        const isAllowedNextPath =
+          nextPath &&
+          nextPath.startsWith('/') &&
+          !nextPath.startsWith('//') &&
+          ((res.user.role === 'admin' && nextPath.startsWith('/admin')) ||
+            (res.user.role === 'mentor' && nextPath.startsWith('/mentor')) ||
+            (res.user.role === 'learner' && nextPath.startsWith('/learner')));
+        const safeNextPath = isAllowedNextPath ? nextPath : base;
+        router.push(safeNextPath);
+      }
+    } catch {
+      setError('Sign in failed. Please check your credentials and network connection.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-ink-800 flex-col justify-between p-12">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-lg font-bold text-white tracking-tight">SkillSphere</span>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-4 max-w-md">
-            Learn from mentors who match your skills and goals.
-          </h1>
-          <p className="text-ink-400 max-w-md">
-            Sign in to access your dashboard, mentor recommendations, sessions, and personalized learning roadmap.
-          </p>
-        </div>
-        <p className="text-sm text-ink-300">Skill-sharing, mentorship, and personalized learning.</p>
-      </div>
-
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-white">
-        <div className="w-full max-w-sm">
-          <Link href="/" className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold text-ink tracking-tight">SkillSphere</span>
+    <AuthShell
+      eyebrow="Welcome back"
+      title="Sign in"
+      description="Enter your credentials to continue your learning journey."
+      footer={
+        <p className="mt-7 text-center text-sm text-[#6b7280]">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="font-semibold text-[#980868] hover:underline">
+            Create an account
           </Link>
-
-          <h2 className="text-2xl font-bold text-ink mb-1">Sign in</h2>
-          <p className="text-sm text-ink-400 mb-6">Welcome back. Enter your credentials to continue.</p>
-
-          {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/50 border border-red-900 mb-4">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-300">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              name="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-            <Input
-              label="Password"
-              type="password"
-              name="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter any password"
-            />
-            <Button type="submit" fullWidth size="lg">Sign In</Button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-ink-100">
-            <p className="text-xs font-semibold text-ink-300 uppercase tracking-wider mb-3">Demo Accounts</p>
-            <div className="space-y-2">
-              {[
-                { role: 'Learner', email: 'learner@skillsphere.demo' },
-                { role: 'Mentor', email: 'mentor@skillsphere.demo' },
-                { role: 'Admin', email: 'admin@skillsphere.demo' },
-              ].map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => fillDemo(acc.email)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-ink-100 hover:border-brand hover:bg-brand-50 transition-colors text-left"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-ink">{acc.role}</p>
-                    <p className="text-xs text-ink-400 font-mono">{acc.email}</p>
-                  </div>
-                  <span className="text-xs text-brand font-medium">Use</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-sm text-ink-400 mt-6 text-center">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-brand-400 font-medium hover:text-brand-300">Sign up</Link>
-          </p>
+        </p>
+      }
+    >
+      {error && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
         </div>
-      </div>
-    </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Input
+          label="Email"
+          type="email"
+          name="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="border-[#e5e7eb] bg-[#ffffff] text-[#101010] placeholder-[#9ca3af] focus:border-[#980868] focus:ring-[#ffd0e8]"
+          required
+        />
+
+        <PasswordInput
+          label="Password"
+          name="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter your password"
+          className="border-[#e5e7eb] bg-[#ffffff] text-[#101010] placeholder-[#9ca3af] focus:border-[#980868] focus:ring-[#ffd0e8]"
+          required
+        />
+
+        <div className="-mt-2 flex justify-end">
+          <Link href="/forgot-password" className="text-sm font-semibold text-[#980868] hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+
+        <Button type="submit" fullWidth size="lg" disabled={isSubmitting} className="mt-2 !rounded-xl !bg-[#980868] !py-3.5 hover:!bg-[#810657]">
+          {isSubmitting ? 'Signing in...' : 'Sign In'}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

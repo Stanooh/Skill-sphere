@@ -1,13 +1,26 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
-import { getSkills, getAllMentors } from '@/services/dataService';
+import { getSkills } from '@/services/dataService';
+import { getEligibleMentors } from '@/services/mentorProfileService';
+import type { Mentor } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 
 export function PublicSkillsPage() {
   const skills = getSkills();
-  const mentors = getAllMentors();
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void getEligibleMentors().then((nextMentors) => {
+      setMentors(nextMentors);
+      setLoading(false);
+    });
+  }, []);
 
   const categories = [...new Set(skills.map((s) => s.category))];
 
@@ -27,7 +40,7 @@ export function PublicSkillsPage() {
                   <div key={skill.id} className="card p-4 flex items-center justify-between">
                     <div>
                       <p className="font-medium text-ink">{skill.name}</p>
-                      <p className="text-xs text-ink-400 mt-0.5">{mentorCount} {mentorCount === 1 ? 'mentor' : 'mentors'} available</p>
+                      <p className="text-xs text-ink-400 mt-0.5">{loading ? 'Loading mentors...' : `${mentorCount} ${mentorCount === 1 ? 'mentor' : 'mentors'} available`}</p>
                     </div>
                     <Badge variant="gray">{skill.category}</Badge>
                   </div>

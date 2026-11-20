@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/Button';
 import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { SkillSelector } from '@/components/profile/SkillSelector';
-import { getMentorProfile, updateMentorProfile, getSkills } from '@/services/dataService';
+import { getSkills } from '@/services/dataService';
+import { getMyMentorProfile, saveMentorProfile } from '@/services/mentorProfileService';
+import { uploadUserAvatar, removeUserAvatar } from '@/services/avatarService';
+import { ProfilePictureUpload } from '@/components/profile/ProfilePictureUpload';
 import { deleteMentorAccount } from '@/services/accountService';
 import { DeleteAccountDialog } from '@/components/account/DeleteAccountDialog';
 import { useRouter } from 'next/navigation';
@@ -36,27 +39,44 @@ function MentorProfileContent({ user, logout }: { user: User; logout: () => Prom
   const [certInput, setCertInput] = useState('');
   const [areaInput, setAreaInput] = useState('');
 
-  const profile = getMentorProfile(user.id);
   const skills = getSkills();
+  const [loading, setLoading] = useState(true);
 
-  const [professionalTitle, setProfessionalTitle] = useState(profile?.professionalTitle ?? '');
-  const [bio, setBio] = useState(profile?.bio ?? '');
-  const [location, setLocation] = useState(profile?.location ?? '');
-  const [experienceYears, setExperienceYears] = useState(profile?.experienceYears ?? 0);
-  const [education, setEducation] = useState(profile?.education ?? '');
-  const [certifications, setCertifications] = useState<string[]>(profile?.certifications ?? []);
-  const [availability, setAvailability] = useState<Availability>(profile?.availability ?? 'available');
-  const [mentorshipAreas, setMentorshipAreas] = useState<string[]>(profile?.mentorshipAreas ?? []);
-  const [skillIds, setSkillIds] = useState<string[]>(profile?.skillIds ?? []);
+  const [professionalTitle, setProfessionalTitle] = useState('');
+  const [bio, setBio] = useState('');
+  const [location, setLocation] = useState('');
+  const [experienceYears, setExperienceYears] = useState(0);
+  const [education, setEducation] = useState('');
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<Availability>('unavailable');
+  const [mentorshipAreas, setMentorshipAreas] = useState<string[]>([]);
+  const [skillIds, setSkillIds] = useState<string[]>([]);
   const [skillLevels, setSkillLevels] = useState<Record<string, SkillLevel>>({});
 
-  const handleSave = () => {
-    const complete =
-      professionalTitle.trim().length > 0 &&
-      bio.trim().length > 0 &&
-      skillIds.length > 0 &&
-      availability !== 'unavailable';
-    updateMentorProfile(user.id, {
+  useEffect(() => {
+    let active = true;
+    void getMyMentorProfile(user.id).then((nextProfile) => {
+      if (!active) return;
+      if (nextProfile) {
+        setProfessionalTitle(nextProfile.professionalTitle);
+        setBio(nextProfile.bio);
+        setLocation(nextProfile.location);
+        setExperienceYears(nextProfile.experienceYears);
+        setEducation(nextProfile.education);
+        setCertifications(nextProfile.certifications);
+        setAvailability(nextProfile.availability);
+        setMentorshipAreas(nextProfile.mentorshipAreas);
+        setSkillIds(nextProfile.skillIds);
+      }
+      setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [user.id]);
+
+  const handleSave = async () => {
+    const nextProfile = await saveMentorProfile(user.id, {
       professionalTitle,
       bio,
       location,
@@ -66,10 +86,13 @@ function MentorProfileContent({ user, logout }: { user: User; logout: () => Prom
       availability,
       mentorshipAreas,
       skillIds,
-      profileComplete: complete,
     });
+    if (!nextProfile) {
+      show('Could not save your profile. Please try again.', 'error');
+      return;
+    }
     setSaved(true);
-    if (complete) {
+    if (nextProfile.profileComplete) {
       show('Profile updated successfully. Your profile is now visible to learners.', 'success');
     } else {
       show('Profile saved. Add a title, bio, at least one skill, and set availability to appear in search.', 'info');
@@ -77,11 +100,46 @@ function MentorProfileContent({ user, logout }: { user: User; logout: () => Prom
     setTimeout(() => setSaved(false), 2000);
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <PageHeader title="Mentor Profile" description="Keep your profile updated so learners can find and connect with you." />
 
       <div className="max-w-2xl space-y-6">
+        <div className="card p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-ink">Profile Picture</h3>
+          <div className="p-4 bg-ink-50 rounded-xl border border-ink-100">
+            <ProfilePictureUpload
+              currentAvatarUrl={user.avatar}
+              userName={user.name}
+              showSaveButton={true}
+              onSave={async (file) => {
+                const res = await uploadUserAvatar(user.id, file);
+                if (res.success) {
+                  show('Profile picture updated successfully.', 'success');
+                }
+                return res;
+              }}
+              onRemove={async () => {
+                const res = await removeUserAvatar(user.id);
+                if (res.success) {
+                  show('Profile picture removed.', 'info');
+                }
+                return res;
+              }}
+            />
+          </div>
+        </div>
+
         <div className="card p-6 space-y-4">
           <h3 className="text-lg font-semibold text-ink">Professional Information</h3>
           <Input label="Professional title" value={professionalTitle} onChange={(e) => setProfessionalTitle(e.target.value)} placeholder="Senior Frontend Engineer" />

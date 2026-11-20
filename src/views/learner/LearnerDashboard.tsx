@@ -10,7 +10,7 @@ import { ProgressBar, EmptyState } from '@/components/ui';
 import { MentorCard } from '@/components/mentors/MentorCard';
 import { WorkshopCard } from '@/components/workshops/WorkshopCard';
 import {
-  getRecommendedMentors,
+  getLearnerProfile,
   getRoadmap,
   getSessionsForLearner,
   getWorkshops,
@@ -19,15 +19,22 @@ import {
   unsaveMentor,
   getProgress,
 } from '@/services/dataService';
-import { useState } from 'react';
+import { getRecommendedEligibleMentors } from '@/services/mentorProfileService';
+import type { MentorRecommendation } from '@/types';
+import { useEffect, useState } from 'react';
 
 export function LearnerDashboard() {
   const { user } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [recommendations, setRecommendations] = useState<MentorRecommendation[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const learnerProfile = getLearnerProfile(user.id);
+    void getRecommendedEligibleMentors(learnerProfile?.skillIds ?? []).then(setRecommendations);
+  }, [user]);
 
   if (!user) return null;
-
-  const recommendations = getRecommendedMentors(user.id);
   const roadmap = getRoadmap(user.id);
   const sessions = getSessionsForLearner(user.id);
   const upcomingSessions = sessions.filter((s) => s.status === 'accepted' || s.status === 'pending');

@@ -16,6 +16,7 @@ export interface User {
   email: string;
   avatar?: string;
   createdAt: string;
+  emailConfirmedAt?: string | null;
 }
 
 export interface Skill {
@@ -152,10 +153,13 @@ export interface SavedMentor {
 export interface Notification {
   id: string;
   userId: string;
+  type?: string;
   title: string;
   message: string;
   read: boolean;
   createdAt: string;
+  relatedApplicationId?: string;
+  relatedEntityId?: string;
 }
 
 export interface MentorRecommendation {

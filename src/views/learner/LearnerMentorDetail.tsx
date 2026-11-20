@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -20,37 +21,65 @@ import {
   unsaveMentor,
   createSession,
 } from '@/services/dataService';
+import { getEligibleMentor } from '@/services/mentorProfileService';
+import type { Mentor } from '@/types';
 
-export function LearnerMentorDetailPage() {
+export function LearnerMentorDetailPage({ publicView = false }: { publicView?: boolean }) {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { show } = useToast();
-  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(
+    publicView && searchParams.get('request') === '1'
+  );
   const [refreshKey, setRefreshKey] = useState(0);
+  const [publicMentor, setPublicMentor] = useState<Mentor | null>(null);
 
   const [sessionTitle, setSessionTitle] = useState('');
   const [sessionDesc, setSessionDesc] = useState('');
   const [sessionDate, setSessionDate] = useState('');
   const [sessionDuration, setSessionDuration] = useState('60');
 
-  if (!user || !id) return null;
-  const mentor = getMentor(id);
-  if (!mentor) {
+  useEffect(() => {
+    if (!publicView || !id) return;
+    let active = true;
+    void getEligibleMentor(id).then((nextMentor) => {
+      if (active) setPublicMentor(nextMentor);
+    });
+    return () => {
+      active = false;
+    };
+  }, [id, publicView]);
+
+  if ((!publicView && !user) || !id) return null;
+  const mentor = publicView ? publicMentor : getMentor(id);
+  if (publicView && !publicMentor) {
     return (
-      <DashboardLayout>
-        <div className="text-center py-16">
-          <p className="text-ink-400">Mentor not found.</p>
-          <Link href="/learner/mentors"><Button variant="secondary" className="mt-4">Back to mentors</Button></Link>
-        </div>
-      </DashboardLayout>
+      <PublicBrowseLayout title="Mentor Profile">
+        <div className="py-16 text-center text-ink-400">Loading mentor profile...</div>
+      </PublicBrowseLayout>
     );
   }
+  if (!mentor) {
+    const notFound = (
+      <div className="py-16 text-center">
+        <p className="text-ink-400">Mentor not found.</p>
+        <Link href={publicView ? '/mentors' : '/learner/mentors'}>
+          <Button variant="secondary" className="mt-4">Back to mentors</Button>
+        </Link>
+      </div>
+    );
+    return publicView
+      ? <PublicBrowseLayout title="Mentor Profile">{notFound}</PublicBrowseLayout>
+      : <DashboardLayout>{notFound}</DashboardLayout>;
+  }
 
-  const saved = isMentorSaved(user.id, id);
+  const saved = user ? isMentorSaved(user.id, id) : false;
 
   const handleSaveToggle = () => {
+    if (!user || user.role !== 'learner') return;
     if (saved) {
       unsaveMentor(user.id, id);
       show('Mentor removed from saved.', 'info');
@@ -61,7 +90,12 @@ export function LearnerMentorDetailPage() {
     setRefreshKey((k) => k + 1);
   };
 
+  const handleRequestClick = () => {
+    setRequestOpen(true);
+  };
+
   const handleRequest = () => {
+    if (!user || user.role !== 'learner' || user.id === id) return;
     if (!sessionTitle || !sessionDate) {
       show('Please fill in the session title and date.', 'error');
       return;
@@ -83,10 +117,10 @@ export function LearnerMentorDetailPage() {
     router.push('/learner/sessions');
   };
 
-  return (
-    <DashboardLayout key={refreshKey}>
+  const detailContent = (
+    <div key={refreshKey}>
       <div className="mb-4">
-        <Link href="/learner/mentors" className="text-sm text-ink-400 hover:text-brand-700 flex items-center gap-1">
+        <Link href={publicView ? '/mentors' : '/learner/mentors'} className="text-sm text-ink-400 hover:text-brand-700 flex items-center gap-1">
           ← Back to mentors
         </Link>
       </div>
@@ -171,15 +205,17 @@ export function LearnerMentorDetailPage() {
             <Button
               fullWidth
               size="lg"
-              onClick={() => setRequestOpen(true)}
-              disabled={mentor.profile.availability === 'unavailable'}
+              onClick={handleRequestClick}
+              disabled={mentor.profile.availability === 'unavailable' || (!!user && (user.role !== 'learner' || user.id === id))}
             >
               Request Mentorship
             </Button>
-            <Button variant="secondary" fullWidth className="mt-3" onClick={handleSaveToggle}>
-              <Bookmark className={`w-4 h-4 ${saved ? 'fill-brand text-brand' : ''}`} />
-              {saved ? 'Saved' : 'Save Mentor'}
-            </Button>
+            {user?.role === 'learner' && (
+              <Button variant="secondary" fullWidth className="mt-3" onClick={handleSaveToggle}>
+                <Bookmark className={`w-4 h-4 ${saved ? 'fill-brand text-brand' : ''}`} />
+                {saved ? 'Saved' : 'Save Mentor'}
+              </Button>
+            )}
           </div>
 
           <div className="card p-5">
@@ -207,23 +243,51 @@ export function LearnerMentorDetailPage() {
       </div>
 
       <Modal open={requestOpen} onClose={() => setRequestOpen(false)} title="Request Mentorship Session">
-        <div className="space-y-4">
-          <p className="text-sm text-ink-400">Request a mentorship session with {mentor.user.name}. They&apos;ll review and accept or decline your request.</p>
-          <Input label="Session title" value={sessionTitle} onChange={(e) => setSessionTitle(e.target.value)} placeholder="e.g., React Component Architecture" />
-          <Textarea label="What do you want to cover?" rows={3} value={sessionDesc} onChange={(e) => setSessionDesc(e.target.value)} placeholder="Describe what you'd like to learn or discuss..." />
-          <Input label="Preferred date & time" type="datetime-local" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
-          <Select label="Duration" value={sessionDuration} onChange={(e) => setSessionDuration(e.target.value)}>
-            <option value="30">30 minutes</option>
-            <option value="60">60 minutes</option>
-            <option value="90">90 minutes</option>
-            <option value="120">2 hours</option>
-          </Select>
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" fullWidth onClick={() => setRequestOpen(false)}>Cancel</Button>
-            <Button fullWidth onClick={handleRequest}>Send Request</Button>
+        {!user ? (
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-ink-400">
+              Create an account or sign in to connect with this mentor and request a mentorship session.
+            </p>
+            <div className="flex gap-3">
+              <Link href={`/login?next=${encodeURIComponent(`/mentors/${id}?request=1`)}`} className="flex-1">
+                <Button fullWidth>Sign In</Button>
+              </Link>
+              <Link href={`/register?next=${encodeURIComponent(`/mentors/${id}?request=1`)}`} className="flex-1">
+                <Button variant="secondary" fullWidth>Create Account</Button>
+              </Link>
+            </div>
+            <Button variant="ghost" fullWidth onClick={() => setRequestOpen(false)}>Return to Mentor Profile</Button>
           </div>
-        </div>
+        ) : user.role !== 'learner' || user.id === id ? (
+          <div className="space-y-4">
+            <p className="text-sm leading-6 text-ink-400">
+              {user.id === id ? 'You cannot request a mentorship session from your own profile.' : 'Only learners can request mentorship sessions.'}
+            </p>
+            <Button variant="secondary" fullWidth onClick={() => setRequestOpen(false)}>Return to Mentor Profile</Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-400">Request a mentorship session with {mentor.user.name}. They&apos;ll review and accept or decline your request.</p>
+            <Input label="Session title" value={sessionTitle} onChange={(e) => setSessionTitle(e.target.value)} placeholder="e.g., React Component Architecture" />
+            <Textarea label="What do you want to cover?" rows={3} value={sessionDesc} onChange={(e) => setSessionDesc(e.target.value)} placeholder="Describe what you'd like to learn or discuss..." />
+            <Input label="Preferred date & time" type="datetime-local" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+            <Select label="Duration" value={sessionDuration} onChange={(e) => setSessionDuration(e.target.value)}>
+              <option value="30">30 minutes</option>
+              <option value="60">60 minutes</option>
+              <option value="90">90 minutes</option>
+              <option value="120">2 hours</option>
+            </Select>
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" fullWidth onClick={() => setRequestOpen(false)}>Cancel</Button>
+              <Button fullWidth onClick={handleRequest}>Send Request</Button>
+            </div>
+          </div>
+        )}
       </Modal>
-    </DashboardLayout>
+    </div>
   );
+
+  return publicView
+    ? <PublicBrowseLayout title="Mentor Profile">{detailContent}</PublicBrowseLayout>
+    : <DashboardLayout key={refreshKey}>{detailContent}</DashboardLayout>;
 }

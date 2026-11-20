@@ -8,33 +8,20 @@ import {
   Linkedin,
   Github,
   Send,
-  Plus,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { getSkills } from '@/services/dataService';
-import type { EvidenceType, MentorApplication, MentorApplicationSkill } from '@/types';
+import type { MentorApplication, MentorApplicationSkill } from '@/types';
 import {
   getMyApplication,
   getMyApplicationSkills,
   createOrUpdateApplication,
   submitApplication,
-  upsertSkillVerification,
+  saveSelectedApplicationSkills,
 } from '@/services/mentorVerificationService';
-
-const evidenceTypes: { value: EvidenceType; label: string }[] = [
-  { value: 'certificate', label: 'Certificate' },
-  { value: 'github', label: 'GitHub repo' },
-  { value: 'portfolio', label: 'Portfolio project' },
-  { value: 'experience', label: 'Professional experience' },
-  { value: 'work-sample', label: 'Work sample' },
-  { value: 'reference', label: 'Reference' },
-  { value: 'assessment', label: 'Assessment' },
-  { value: 'sample-lesson', label: 'Sample lesson' },
-];
 
 export function LearnerApplicationPage() {
   const { user } = useAuth();
@@ -53,7 +40,6 @@ export function LearnerApplicationPage() {
   const [portfolio, setPortfolio] = useState('');
 
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
-  const [skillEvidence, setSkillEvidence] = useState<Record<string, { type: EvidenceType; title: string; description: string; url?: string }>>({});
 
   const availableSkills = getSkills();
 
@@ -109,7 +95,7 @@ export function LearnerApplicationPage() {
       });
       if (app) {
         setApplication(app);
-        show('Application created. Add your skills and evidence below.', 'success');
+        show('Application created. Add the skills you want to teach below.', 'success');
       } else {
         show('Could not create application. Please try again.', 'error');
       }
@@ -135,46 +121,21 @@ export function LearnerApplicationPage() {
     );
   };
 
-  const saveSkillEvidence = async (skillId: string) => {
-    if (!application) {
-      show('Save your profile details first.', 'error');
-      return;
-    }
-    const evidence = skillEvidence[skillId];
-    if (!evidence || !evidence.title.trim() || !evidence.description.trim()) {
-      show('Add a title and description for the evidence.', 'error');
-      return;
-    }
-
-    const skill = availableSkills.find((s) => s.id === skillId);
-    const result = await upsertSkillVerification(application.id, skillId, skill?.name ?? skillId, [evidence]);
-    if (result) {
-      setSkills((prev) => {
-        const existing = prev.find((s) => s.skillId === skillId);
-        if (existing) {
-          return prev.map((s) => (s.skillId === skillId ? result : s));
-        }
-        return [...prev, result];
-      });
-      setSkillEvidence((prev) => ({ ...prev, [skillId]: { type: 'portfolio', title: '', description: '' } }));
-      show('Skill evidence saved.', 'success');
-    } else {
-      show('Could not save evidence. Please try again.', 'error');
-    }
-  };
-
   const submit = async () => {
     if (!application) {
       show('Save your profile details first.', 'error');
       return;
     }
     if (selectedSkillIds.length === 0) {
-      show('Select at least one skill with evidence.', 'error');
+      show('Select at least one skill to teach.', 'error');
       return;
     }
-    const hasEvidence = skills.some((s) => selectedSkillIds.includes(s.skillId) && s.evidenceData.length > 0);
-    if (!hasEvidence) {
-      show('Add evidence for at least one skill before submitting.', 'error');
+    const selectedSkills = availableSkills
+      .filter((skill) => selectedSkillIds.includes(skill.id))
+      .map((skill) => ({ skillId: skill.id, skillName: skill.name }));
+    const skillsSaved = await saveSelectedApplicationSkills(application.id, selectedSkills, skills);
+    if (!skillsSaved) {
+      show('Could not save selected skills. Please try again.', 'error');
       return;
     }
 
@@ -248,12 +209,12 @@ export function LearnerApplicationPage() {
           )}
         </section>
 
-        {/* Skill selection and evidence */}
+        {/* Skill selection */}
         {isEditable && (
           <section className="card p-6">
             <div className="mb-5">
-              <h2 className="text-lg font-semibold text-ink">Competency evidence</h2>
-              <p className="mt-1 text-sm text-ink-400">Select the skills you want to teach and provide evidence for each.</p>
+              <h2 className="text-lg font-semibold text-ink">Skills you can teach</h2>
+              <p className="mt-1 text-sm text-ink-400">Select the languages, technologies, frameworks, and other skills you are qualified to teach.</p>
             </div>
 
             <div className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -265,61 +226,6 @@ export function LearnerApplicationPage() {
               ))}
             </div>
 
-            <div className="space-y-5">
-              {availableSkills.filter((s) => selectedSkillIds.includes(s.id)).map((skill) => {
-                const existingSkill = skills.find((s) => s.skillId === skill.id);
-                const draft = skillEvidence[skill.id] ?? { type: 'portfolio' as EvidenceType, title: '', description: '' };
-                return (
-                  <div key={skill.id} className="rounded-xl border border-ink-200 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="font-medium text-ink">{skill.name}</h3>
-                        <p className="text-xs text-ink-300">{skill.category}</p>
-                      </div>
-                      {existingSkill && (
-                        <Badge variant={existingSkill.status === 'verified' ? 'green' : existingSkill.status === 'needs-evidence' ? 'amber' : existingSkill.status === 'rejected' ? 'red' : 'gray'}>
-                          {existingSkill.status.replace(/-/g, ' ')}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Existing evidence */}
-                    {existingSkill && existingSkill.evidenceData.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {existingSkill.evidenceData.map((ev, i) => (
-                          <div key={i} className="rounded-lg bg-ink-50 px-3 py-2 text-sm">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-medium text-ink-600">{ev.title}</span>
-                              <Badge variant="outline">{ev.type}</Badge>
-                            </div>
-                            <p className="mt-1 text-xs text-ink-300">{ev.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {existingSkill?.feedback && (
-                      <p className="text-sm text-amber-400 mb-3">Reviewer feedback: {existingSkill.feedback}</p>
-                    )}
-
-                    {/* Add evidence form */}
-                    <div className="rounded-lg border border-dashed border-ink-200 p-3 space-y-3">
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <select className="input" value={draft.type} onChange={(e) => setSkillEvidence((prev) => ({ ...prev, [skill.id]: { ...draft, type: e.target.value as EvidenceType } }))}>
-                          {evidenceTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                        <input className="input" placeholder="Evidence title" value={draft.title} onChange={(e) => setSkillEvidence((prev) => ({ ...prev, [skill.id]: { ...draft, title: e.target.value } }))} />
-                      </div>
-                      <textarea className="input min-h-16" placeholder="What does this demonstrate?" value={draft.description} onChange={(e) => setSkillEvidence((prev) => ({ ...prev, [skill.id]: { ...draft, description: e.target.value } }))} />
-                      <input className="input" placeholder="Link (optional)" value={draft.url ?? ''} onChange={(e) => setSkillEvidence((prev) => ({ ...prev, [skill.id]: { ...draft, url: e.target.value } }))} />
-                      <Button size="sm" onClick={() => saveSkillEvidence(skill.id)}>
-                        <Plus className="h-4 w-4" /> Add evidence
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </section>
         )}
 
@@ -329,7 +235,7 @@ export function LearnerApplicationPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-ink">Submit for review</h2>
-                <p className="mt-1 text-sm text-ink-400">An administrator will review your evidence and make a decision.</p>
+                <p className="mt-1 text-sm text-ink-400">An administrator will review your professional information and selected skills.</p>
               </div>
               <Button size="lg" onClick={submit}>
                 <Send className="h-4 w-4" /> Submit application

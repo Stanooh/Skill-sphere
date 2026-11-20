@@ -26,7 +26,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
-import { getNotifications, markAllNotificationsRead } from '@/services/dataService';
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  subscribeToNotifications,
+} from '@/services/notificationService';
+import type { Notification } from '@/types';
 import { useState } from 'react';
 
 interface NavItem {
@@ -37,6 +43,7 @@ interface NavItem {
 
 const learnerNav: NavItem[] = [
   { to: '/learner', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+  { to: '/notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" /> },
   { to: '/learner/mentors', label: 'Find Mentors', icon: <Compass className="w-[18px] h-[18px]" /> },
   { to: '/learner/saved', label: 'Saved Mentors', icon: <Bookmark className="w-[18px] h-[18px]" /> },
   { to: '/learner/sessions', label: 'My Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },
@@ -50,6 +57,7 @@ const learnerNav: NavItem[] = [
 
 const mentorNav: NavItem[] = [
   { to: '/mentor', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+  { to: '/notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" /> },
   { to: '/mentor/requests', label: 'Mentorship Requests', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
   { to: '/mentor/sessions', label: 'Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },
   { to: '/mentor/workshops', label: 'My Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
@@ -58,15 +66,14 @@ const mentorNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
-  { to: '/admin', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-  { to: '/admin/users', label: 'All Users', icon: <Users className="w-[18px] h-[18px]" /> },
-  { to: '/admin/learners', label: 'Learners', icon: <GraduationCap className="w-[18px] h-[18px]" /> },
-  { to: '/admin/mentors', label: 'Mentors', icon: <Compass className="w-[18px] h-[18px]" /> },
-  { to: '/admin/skills', label: 'Skills', icon: <Bookmark className="w-[18px] h-[18px]" /> },
-  { to: '/admin/workshops', label: 'Workshops', icon: <BookOpen className="w-[18px] h-[18px]" /> },
+  { to: '/admin/dashboard', label: 'Overview', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+  { to: '/admin/verification', label: 'Mentor Verification', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
+  { to: '/admin/users', label: 'User Management', icon: <Users className="w-[18px] h-[18px]" /> },
+  { to: '/admin/workshops', label: 'Workshop Management', icon: <BookOpen className="w-[18px] h-[18px]" /> },
+  { to: '/admin/learners', label: 'Find Talents', icon: <GraduationCap className="w-[18px] h-[18px]" /> },
   { to: '/admin/reports', label: 'Reports', icon: <BarChart3 className="w-[18px] h-[18px]" /> },
-  { to: '/admin/verification', label: 'Verification Review', icon: <ShieldCheck className="w-[18px] h-[18px]" /> },
-  { to: '/admin/recommendations', label: 'Recommendations', icon: <Star className="w-[18px] h-[18px]" /> },
+  { to: '/admin/notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" /> },
+  { to: '/admin/settings', label: 'Settings', icon: <Shield className="w-[18px] h-[18px]" /> },
 ];
 
 const restrictedNav: NavItem[] = [
@@ -79,20 +86,44 @@ function getNavItems(role: string): NavItem[] {
   return adminNav;
 }
 
+function isNavRouteMatch(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
 export function DashboardLayout({ children, title, restricted = false }: { children: ReactNode; title?: string; restricted?: boolean }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const navItems = restricted ? restrictedNav : user ? getNavItems(user.role) : [];
+  const activeNavPath = navItems
+    .filter((item) => isNavRouteMatch(pathname, item.to))
+    .sort((a, b) => b.to.length - a.to.length)[0]?.to;
   const roleLabel = user?.role === 'learner' ? 'Learner' : user?.role === 'mentor' ? 'Mentor' : 'Admin';
-  const roleBase = user?.role === 'learner' ? '/learner' : user?.role === 'mentor' ? '/mentor' : '/admin';
+  const roleBase = user?.role === 'learner' ? '/learner' : user?.role === 'mentor' ? '/mentor' : '/admin/dashboard';
   const profileHref = restricted ? '/mentor/account' : `${roleBase}/profile`;
 
-  const notifications = user ? getNotifications(user.id) : [];
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const load = async () => {
+      const next = await getNotifications(user.id);
+      if (active) setNotifications(next);
+    };
+    void load();
+    const unsubscribe = subscribeToNotifications(user.id, () => {
+      void load();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [user]);
 
   const handleLogout = async () => {
     await logout();
@@ -102,7 +133,9 @@ export function DashboardLayout({ children, title, restricted = false }: { child
   const handleNotifClick = () => {
     setNotifOpen(!notifOpen);
     if (!notifOpen && unreadCount > 0) {
-      markAllNotificationsRead(user!.id);
+      void markAllNotificationsRead(user!.id).then(() => {
+        setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
+      });
     }
   };
 
@@ -127,16 +160,17 @@ export function DashboardLayout({ children, title, restricted = false }: { child
           <p className="px-3 mb-2 text-xs font-semibold text-ink-300 uppercase tracking-wider">{roleLabel} Menu</p>
           <div className="flex flex-col gap-0.5">
             {navItems.map((item) => {
-              const isActive = pathname === item.to;
+              const isActive = item.to === activeNavPath;
               return (
                 <Link
                   key={item.to}
                   href={item.to}
                   onClick={() => setMobileOpen(false)}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
                 >
                   {item.icon}
-                  {item.label}
+                  <span className="nav-label-underline">{item.label}</span>
                 </Link>
               );
             })}
@@ -201,10 +235,19 @@ export function DashboardLayout({ children, title, restricted = false }: { child
                       <p className="px-4 py-6 text-sm text-ink-400 text-center">No notifications</p>
                     ) : (
                       notifications.map((n) => (
-                        <div key={n.id} className="px-4 py-3 border-b border-ink-100 hover:bg-ink-100">
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            if (!n.read && user) {
+                              void markNotificationRead(user.id, n.id);
+                              setNotifications((current) => current.map((item) => item.id === n.id ? { ...item, read: true } : item));
+                            }
+                          }}
+                          className="w-full px-4 py-3 border-b border-ink-100 hover:bg-ink-100 text-left"
+                        >
                           <p className="text-sm font-medium text-ink">{n.title}</p>
                           <p className="text-xs text-ink-400 mt-0.5">{n.message}</p>
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>

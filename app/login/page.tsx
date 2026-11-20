@@ -1,13 +1,20 @@
+import { Suspense } from 'react';
 import { LoginPage } from '@/views/LoginPage';
-import { PublicOnlyRoute } from '@/components/guards/RouteGuards';
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const metadata = {
+  title: 'Sign In — SkillSphere',
+};
+
 export default function Page() {
   return (
-    <PublicOnlyRoute>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-ink-50">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
       <LoginPage />
-    </PublicOnlyRoute>
+    </Suspense>
   );
 }

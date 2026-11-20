@@ -1,24 +1,12 @@
 import Link from 'next/link';
-import { GraduationCap, Compass, Users, Target, BookOpen, CalendarDays, BarChart3, Shield } from 'lucide-react';
+import { Compass, Users, Target, BookOpen, CalendarDays, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PublicNavigation } from '@/components/layout/PublicNavigation';
 
 export function AboutPage() {
   return (
     <div className="min-h-screen bg-white">
-      <nav className="sticky top-0 z-30 bg-ink-800/90 backdrop-blur border-b border-ink-200">
-        <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold text-ink tracking-tight">SkillSphere</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link href="/login"><Button variant="secondary" size="sm">Sign In</Button></Link>
-            <Link href="/register"><Button size="sm">Get Started</Button></Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNavigation />
 
       <section className="max-w-4xl mx-auto px-4 lg:px-8 py-16">
         <h1 className="text-4xl font-bold text-ink mb-4">About SkillSphere</h1>
@@ -47,27 +35,19 @@ export function AboutPage() {
           ))}
         </div>
 
-        <div className="card p-8">
-          <h2 className="text-2xl font-bold text-ink mb-4">Demo Accounts</h2>
-          <p className="text-ink-400 mb-6">Use these accounts to explore SkillSphere. Any password will work.</p>
-          <div className="grid sm:grid-cols-3 gap-4">
-            {[
-              { role: 'Learner', email: 'learner@skillsphere.demo', icon: <GraduationCap className="w-4 h-4" /> },
-              { role: 'Mentor', email: 'mentor@skillsphere.demo', icon: <Compass className="w-4 h-4" /> },
-              { role: 'Admin', email: 'admin@skillsphere.demo', icon: <Shield className="w-4 h-4" /> },
-            ].map((acc) => (
-              <div key={acc.role} className="border border-ink-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-brand-300 mb-2">
-                  {acc.icon}
-                  <span className="text-sm font-semibold">{acc.role}</span>
-                </div>
-                <p className="text-sm text-ink-400 font-mono">{acc.email}</p>
-              </div>
-            ))}
+        <div className="card p-8 text-center bg-brand-50/50 border border-brand-100">
+          <h2 className="text-2xl font-bold text-ink mb-3">Ready to start your journey?</h2>
+          <p className="text-ink-400 mb-6 max-w-md mx-auto text-sm">
+            Join SkillSphere today as a learner or apply as an industry mentor.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/register">
+              <Button size="lg">Create Free Account</Button>
+            </Link>
+            <Link href="/login">
+              <Button variant="secondary" size="lg">Sign In</Button>
+            </Link>
           </div>
-          <Link href="/login" className="mt-6 inline-block">
-            <Button>Try the demo</Button>
-          </Link>
         </div>
       </section>
     </div>

@@ -1,29 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { MentorCard } from '@/components/mentors/MentorCard';
 import { EmptyState } from '@/components/ui';
 import { Search, Compass } from 'lucide-react';
 import {
-  getAllMentors,
-  getRecommendedMentors,
+  getLearnerProfile,
   isMentorSaved,
   saveMentor,
   unsaveMentor,
 } from '@/services/dataService';
+import { getEligibleMentors, getRecommendedEligibleMentors } from '@/services/mentorProfileService';
+import type { Mentor, MentorRecommendation } from '@/types';
 
 export function LearnerMentorsPage() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'recommended' | 'all'>('recommended');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [allMentors, setAllMentors] = useState<Mentor[]>([]);
+  const [recommendations, setRecommendations] = useState<MentorRecommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const load = async () => {
+      const learnerProfile = getLearnerProfile(user.id);
+      const [eligible, recommended] = await Promise.all([
+        getEligibleMentors(),
+        getRecommendedEligibleMentors(learnerProfile?.skillIds ?? []),
+      ]);
+      if (!active) return;
+      setAllMentors(eligible);
+      setRecommendations(recommended);
+      setLoading(false);
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (!user) return null;
-
-  const recommendations = getRecommendedMentors(user.id);
-  const allMentors = getAllMentors();
 
   const handleSaveToggle = (mentorId: string) => {
     if (isMentorSaved(user.id, mentorId)) unsaveMentor(user.id, mentorId);
@@ -31,7 +52,7 @@ export function LearnerMentorsPage() {
     setRefreshKey((k) => k + 1);
   };
 
-  const filterFn = (mentor: typeof allMentors[0]) => {
+  const filterFn = (mentor: Mentor) => {
     if (!query) return true;
     const q = query.toLowerCase();
     return (
@@ -41,7 +62,7 @@ export function LearnerMentorsPage() {
     );
   };
 
-  const filteredMentors = view === 'recommended' ? recommendations.map((r) => r) : allMentors.map((m) => ({ mentor: m, matchPercentage: undefined, matchingSkills: [], matchScore: 0 }));
+  const filteredMentors = view === 'recommended' ? recommendations : allMentors.map((m) => ({ mentor: m, matchPercentage: undefined, matchingSkills: [], matchScore: 0 }));
   const displayed = filteredMentors.filter((r) => filterFn(r.mentor));
 
   return (
@@ -74,7 +95,9 @@ export function LearnerMentorsPage() {
         </div>
       </div>
 
-      {displayed.length === 0 ? (
+      {loading ? (
+        <div className="card p-8 text-center text-ink-400">Loading mentors...</div>
+      ) : displayed.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={<Compass className="w-6 h-6" />}

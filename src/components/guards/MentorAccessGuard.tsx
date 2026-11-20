@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { checkMentorAccess } from '@/services/mentorVerificationService';
+import { getRawAuthUser } from '@/services/authService';
 import type { MentorApplicationStatus, MentorApplication } from '@/types';
 import { MentorStatusScreen } from '@/views/mentor/MentorStatusScreen';
 
@@ -28,15 +29,28 @@ export function MentorAccessGuard({ children, allowPending = false, excludeAppro
   useEffect(() => {
     if (loading) return;
 
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-
     let active = true;
+
     const resolveAccess = async () => {
+      // 1. Mandatory Email verification check
+      if (!user) {
+        const rawUser = await getRawAuthUser();
+        if (!active) return;
+        if (rawUser && !rawUser.emailConfirmedAt) {
+          router.replace(`/verify-email?email=${encodeURIComponent(rawUser.email)}`);
+          setState({ phase: 'redirect' });
+          return;
+        }
+
+        router.replace('/login');
+        setState({ phase: 'redirect' });
+        return;
+      }
+
+      // 2. Check mentor application lifecycle access
       const result = await checkMentorAccess();
       if (!active) return;
+
       if (result.hasAccess) {
         if (excludeApproved) {
           router.replace('/mentor');

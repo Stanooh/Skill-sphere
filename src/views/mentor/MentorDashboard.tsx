@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
@@ -10,18 +10,23 @@ import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight, AlertCircle }
 import {
   getSessionsForMentor,
   getWorkshopsForMentor,
-  getMentorProfile,
-  isMentorProfileComplete,
 } from '@/services/dataService';
+import { getMyMentorProfile } from '@/services/mentorProfileService';
+import type { MentorProfile } from '@/types';
 
 export function MentorDashboard() {
   const { user } = useAuth();
   const [refreshKey] = useState(0);
+  const [profile, setProfile] = useState<MentorProfile | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    void getMyMentorProfile(user.id).then(setProfile);
+  }, [user]);
 
   if (!user) return null;
 
-  const profile = getMentorProfile(user.id);
-  const profileReady = profile ? isMentorProfileComplete(profile) : false;
+  const profileReady = profile?.profileComplete === true;
   const sessions = getSessionsForMentor(user.id);
   const pendingRequests = sessions.filter((s) => s.status === 'pending');
   const acceptedSessions = sessions.filter((s) => s.status === 'accepted');

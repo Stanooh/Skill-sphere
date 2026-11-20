@@ -1,18 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search, Star, MapPin, Calendar } from 'lucide-react';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
-import { getAllMentors } from '@/services/dataService';
+import { getEligibleMentors } from '@/services/mentorProfileService';
+import type { Mentor } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
 
 export function PublicMentorsPage() {
   const [query, setQuery] = useState('');
-  const mentors = getAllMentors();
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void getEligibleMentors().then((nextMentors) => {
+      setMentors(nextMentors);
+      setLoading(false);
+    });
+  }, []);
 
   const filtered = mentors.filter((m) => {
     if (!query) return true;
@@ -39,7 +48,9 @@ export function PublicMentorsPage() {
         />
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="card p-8 text-center text-ink-400">Loading mentors...</div>
+      ) : filtered.length === 0 ? (
         <div className="card p-8 text-center text-ink-400">No mentors found. Try a different search.</div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -77,7 +88,7 @@ export function PublicMentorsPage() {
                 {m.profile.availability === 'unavailable' && <Badge variant="red"><Calendar className="w-3 h-3" /> Unavailable</Badge>}
               </div>
               <div className="mt-auto">
-                <Link href="/register"><Button variant="secondary" fullWidth>Sign up to connect</Button></Link>
+                <Link href={`/mentors/${m.user.id}`}><Button variant="secondary" fullWidth>Sign up to connect</Button></Link>
               </div>
             </div>
           ))}

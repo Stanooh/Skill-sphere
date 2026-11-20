@@ -1,43 +1,107 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { GraduationCap, AlertCircle, Compass, GraduationCap as LearnerIcon } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, Compass, GraduationCap as LearnerIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { PasswordStrengthIndicator } from '@/components/ui/PasswordStrengthIndicator';
+import { ProfilePictureUpload } from '@/components/profile/ProfilePictureUpload';
 import { Button } from '@/components/ui/Button';
+import { validatePasswordStrength, validateEmailFormat } from '@/utils/passwordValidation';
 import type { UserRole } from '@/types';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 export function RegisterPage() {
   const { register } = useAuth();
   const { show } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('learner');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Real-time password evaluation
+  const passwordStrength = useMemo(() => {
+    return validatePasswordStrength(password, { email, name });
+  }, [password, email, name]);
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    setEmailError('');
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!name || !email || !password) {
-      setError('Please fill in all fields.');
+    setEmailError('');
+
+    // 1. Basic empty checks
+    if (!name.trim()) {
+      setError('Please enter your full name.');
       return;
     }
+
+    // 2. Email format validation
+    const emailValidation = validateEmailFormat(email);
+    if (!emailValidation.isValid) {
+      setEmailError(emailValidation.error || 'Please enter a valid email address.');
+      return;
+    }
+
+    // 3. Strict password security validation
+    if (!passwordStrength.isValid) {
+      setError('Your password does not satisfy the security requirements. Please check the recommendations below.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const user = await register(name, email, role, password);
-      if (!user) {
-        setError('An account with that email already exists.');
+      const res = await register(
+        name.trim(),
+        emailValidation.normalized,
+        role,
+        password,
+        avatarFile
+      );
+
+      if (res.error) {
+        setError(res.error);
         return;
       }
-      show(`Account created. Welcome, ${user.name.split(' ')[0]}!`, 'success');
-      const base = user.role === 'learner' ? '/learner' : user.role === 'mentor' ? '/mentor/apply' : '/admin';
-      router.push(base);
+
+      if (res.needsEmailVerification) {
+        show('Registration submitted! Please verify your email address to continue.', 'info');
+        const nextPath = searchParams.get('next');
+        const safeNextPath =
+          nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '';
+        const nextQuery = safeNextPath ? `&next=${encodeURIComponent(safeNextPath)}` : '';
+        router.push(`/verify-email?email=${encodeURIComponent(emailValidation.normalized)}${nextQuery}`);
+        return;
+      }
+
+      if (res.user) {
+        show(`Account created. Welcome, ${res.user.name.split(' ')[0]}!`, 'success');
+        const base = res.user.role === 'learner' ? '/learner' : res.user.role === 'mentor' ? '/mentor/apply' : '/admin';
+        const nextPath = searchParams.get('next');
+        const safeNextPath =
+          nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : base;
+        router.push(safeNextPath);
+      }
     } catch {
-      setError('Registration failed. Please try again.');
+      setError('Registration failed. Please check your network and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -47,47 +111,30 @@ export function RegisterPage() {
   ];
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-ink-800 flex-col justify-between p-12">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-lg font-bold text-white tracking-tight">SkillSphere</span>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-4 max-w-md">
-            Join SkillSphere and start your learning journey.
-          </h1>
-          <p className="text-ink-400 max-w-md">
-            Create a profile, get matched with mentors, and follow a personalized roadmap to your goals.
-          </p>
-        </div>
-        <p className="text-sm text-ink-300">Skill-sharing, mentorship, and personalized learning.</p>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center p-6 bg-white">
-        <div className="w-full max-w-sm">
-          <Link href="/" className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold text-ink tracking-tight">SkillSphere</span>
+    <AuthShell
+      eyebrow="Start your journey"
+      title="Create account"
+      description="Choose your role and build the skills that move you forward."
+      footer={
+        <p className="mt-7 text-center text-sm text-[#6b7280]">
+          Already have an account?{' '}
+          <Link href="/login" className="font-semibold text-[#980868] hover:underline">
+            Sign in
           </Link>
+        </p>
+      }
+    >
+      {error && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
 
-          <h2 className="text-2xl font-bold text-ink mb-1">Create your account</h2>
-          <p className="text-sm text-ink-400 mb-6">Choose your role and get started in seconds.</p>
-
-          {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/50 border border-red-900 mb-4">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-300">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Role selector */}
             <div>
-              <label className="label">I want to join as a</label>
+              <label className="mb-2 block text-sm font-medium text-[#374151]">I want to join as a</label>
               <div className="grid grid-cols-2 gap-2">
                 {roles.map((r) => (
                   <button
@@ -96,30 +143,78 @@ export function RegisterPage() {
                     onClick={() => setRole(r.value)}
                     className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all ${
                       role === r.value
-                        ? 'border-brand bg-brand-50 text-brand-300'
-                        : 'border-ink-200 text-ink-500 hover:border-ink-300'
+                        ? 'border-[#980868] bg-[#fff1f8] text-[#980868] font-semibold shadow-sm'
+                        : 'border-[#e5e7eb] text-[#6b7280] hover:border-[#c01080]'
                     }`}
                   >
                     <r.icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{r.label}</span>
+                    <span className="text-xs">{r.label}</span>
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-ink-400 mt-2">{roles.find((r) => r.value === role)?.desc}</p>
+              <p className="mt-2 text-xs text-[#6b7280]">{roles.find((r) => r.value === role)?.desc}</p>
             </div>
 
-            <Input label="Full name" type="text" name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Brian Mwangi" />
-            <Input label="Email" type="email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-            <Input label="Password" type="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Choose a password" />
-            <Button type="submit" fullWidth size="lg">Create Account</Button>
-          </form>
+            {/* Profile picture upload (Optional) */}
+            <div className="rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-3">
+              <label className="mb-2 block text-sm font-medium text-[#374151]">Profile Picture (Optional)</label>
+              <ProfilePictureUpload
+                userName={name || 'New User'}
+                onFileSelect={(file) => setAvatarFile(file)}
+              />
+            </div>
 
-          <p className="text-sm text-ink-400 mt-6 text-center">
-            Already have an account?{' '}
-            <Link href="/login" className="text-brand-400 font-medium hover:text-brand-300">Sign in</Link>
-          </p>
-        </div>
-      </div>
-    </div>
+            {/* Name */}
+            <Input
+              label="Full name"
+              type="text"
+              name="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Brian Mwangi"
+              className="border-[#e5e7eb] bg-[#ffffff] text-[#101010] placeholder-[#9ca3af] focus:border-[#980868] focus:ring-[#ffd0e8]"
+              required
+            />
+
+            {/* Email */}
+            <Input
+              label="Email"
+              type="email"
+              name="email"
+              value={email}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              placeholder="you@example.com"
+              error={emailError}
+              className="border-[#e5e7eb] bg-[#ffffff] text-[#101010] placeholder-[#9ca3af] focus:border-[#980868] focus:ring-[#ffd0e8]"
+              required
+            />
+
+            {/* Password with Show/Hide and Real-Time Strength Meter */}
+            <div>
+              <PasswordInput
+                label="Password"
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimum 12 characters"
+                className="border-[#e5e7eb] bg-[#ffffff] text-[#101010] placeholder-[#9ca3af] focus:border-[#980868] focus:ring-[#ffd0e8]"
+                required
+              />
+              {password.length > 0 && (
+                <PasswordStrengthIndicator strength={passwordStrength} />
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              fullWidth
+              size="lg"
+              disabled={isSubmitting || (password.length > 0 && !passwordStrength.isValid)}
+              className="mt-2 !rounded-xl !bg-[#980868] !py-3.5 hover:!bg-[#810657]"
+            >
+              {isSubmitting ? 'Creating account...' : 'Create Account'}
+            </Button>
+          </form>
+    </AuthShell>
   );
 }

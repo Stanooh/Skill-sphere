@@ -25,6 +25,8 @@ import {
   getSkills,
   getUserById,
 } from '@/services/dataService';
+import { uploadUserAvatar, removeUserAvatar } from '@/services/avatarService';
+import { ProfilePictureUpload } from '@/components/profile/ProfilePictureUpload';
 import {
   getRecommendationsForStudent,
   updateStudentApproval,
@@ -180,6 +182,28 @@ export function LearnerProfilePage() {
           {step === 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-ink mb-2">Basic Information</h3>
+              <div className="p-4 bg-ink-50 rounded-xl border border-ink-100">
+                <label className="label mb-2">Profile Picture</label>
+                <ProfilePictureUpload
+                  currentAvatarUrl={user.avatar}
+                  userName={user.name}
+                  showSaveButton={true}
+                  onSave={async (file) => {
+                    const res = await uploadUserAvatar(user.id, file);
+                    if (res.success) {
+                      show('Profile picture updated successfully.', 'success');
+                    }
+                    return res;
+                  }}
+                  onRemove={async () => {
+                    const res = await removeUserAvatar(user.id);
+                    if (res.success) {
+                      show('Profile picture removed.', 'info');
+                    }
+                    return res;
+                  }}
+                />
+              </div>
               <Textarea
                 label="Bio"
                 rows={3}

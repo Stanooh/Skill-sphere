@@ -197,6 +197,15 @@ export function getMentor(userId: string): Mentor | undefined {
   return { user, profile, skills };
 }
 
+function isPublicMentor(user: User, profile: MentorProfile): boolean {
+  return (
+    user.role === 'mentor' &&
+    user.emailConfirmedAt !== null &&
+    profile.activated &&
+    isMentorProfileComplete(profile)
+  );
+}
+
 export function isMentorProfileComplete(profile: MentorProfile): boolean {
   return (
     profile.profileComplete &&
@@ -212,11 +221,16 @@ export function getAllMentors(): Mentor[] {
   return db.users
     .filter((u) => u.role === 'mentor')
     .map((user) => {
-      const profile = db.mentorProfiles.find((p) => p.userId === user.id)!;
+      const profile = db.mentorProfiles.find((p) => p.userId === user.id);
+      if (!profile) return null;
       const skills = db.skills.filter((s) => profile.skillIds.includes(s.id));
       return { user, profile, skills };
     })
-    .filter((m) => m.profile.activated && isMentorProfileComplete(m.profile));
+    .filter((m): m is Mentor => m !== null && isPublicMentor(m.user, m.profile));
+}
+
+export function getPublicMentor(userId: string): Mentor | undefined {
+  return getAllMentors().find((mentor) => mentor.user.id === userId);
 }
 
 export function isApprovedMentor(userId: string): boolean {

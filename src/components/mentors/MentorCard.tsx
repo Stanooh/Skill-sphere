@@ -26,7 +26,7 @@ export function MentorCard({
       <div className="flex items-start gap-3 mb-4">
         <Avatar src={mentor.user.avatar} name={mentor.user.name} size="lg" />
         <div className="flex-1 min-w-0">
-          <Link href={`/learner/mentors/${mentor.user.id}`} className="hover:text-brand-300">
+          <Link href={`/mentors/${mentor.user.id}`} className="hover:text-brand-300">
             <h3 className="font-semibold text-ink truncate">{mentor.user.name}</h3>
           </Link>
           <p className="text-sm text-ink-400 truncate">{mentor.profile.professionalTitle}</p>
@@ -71,7 +71,7 @@ export function MentorCard({
       </div>
 
       <div className="flex items-center gap-2 mt-auto">
-        <Link href={`/learner/mentors/${mentor.user.id}`} className="flex-1">
+        <Link href={`/mentors/${mentor.user.id}`} className="flex-1">
           <Button variant="secondary" fullWidth>View Profile</Button>
         </Link>
         {onSaveToggle && (

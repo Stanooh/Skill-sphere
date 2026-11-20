@@ -78,6 +78,33 @@
   .nav-link-active {
     @apply bg-brand-50 text-brand-900 hover:bg-brand-50 hover:text-brand-900;
   }
+  .nav-underline-link {
+    @apply relative;
+  }
+  .nav-label-underline {
+    @apply relative inline-flex pb-1;
+  }
+  .nav-label-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: 9999px;
+    background: var(--primary);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 220ms ease;
+  }
+  .nav-underline-link:hover .nav-label-underline::after,
+  .nav-underline-link:focus-visible .nav-label-underline::after,
+  .nav-underline-link[aria-current='page'] .nav-label-underline::after,
+  .nav-link:hover .nav-label-underline::after,
+  .nav-link:focus-visible .nav-label-underline::after,
+  .nav-link[aria-current='page'] .nav-label-underline::after {
+    transform: scaleX(1);
+  }
 }
 
 @layer utilities {
@@ -106,6 +133,12 @@
   .scrollbar-thin::-webkit-scrollbar-track { @apply bg-transparent; }
   .animate-in { animation: animate-in 0.2s ease-out; }
   .slide-in-from-bottom-2 { animation: slide-in-from-bottom 0.2s ease-out; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-label-underline::after {
+    transition: none;
+  }
 }
 
 @keyframes slide-in-from-bottom {

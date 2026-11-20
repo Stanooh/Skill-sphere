@@ -54,6 +54,7 @@ export const mockUsers: User[] = [
     email: 'mentor@skillsphere.demo',
     avatar: 'https://i.pravatar.cc/150?img=45',
     createdAt: '2025-06-01T10:00:00Z',
+    emailConfirmedAt: '2025-06-01T10:00:00Z',
   },
   {
     id: 'user-admin-1',
@@ -70,6 +71,7 @@ export const mockUsers: User[] = [
     email: 'james.kibet@skillsphere.demo',
     avatar: 'https://i.pravatar.cc/150?img=33',
     createdAt: '2025-06-10T10:00:00Z',
+    emailConfirmedAt: '2025-06-10T10:00:00Z',
   },
   {
     id: 'user-mentor-3',
@@ -78,6 +80,7 @@ export const mockUsers: User[] = [
     email: 'aisha.mohammed@skillsphere.demo',
     avatar: 'https://i.pravatar.cc/150?img=47',
     createdAt: '2025-07-05T10:00:00Z',
+    emailConfirmedAt: '2025-07-05T10:00:00Z',
   },
   {
     id: 'user-mentor-4',
@@ -86,6 +89,7 @@ export const mockUsers: User[] = [
     email: 'daniel.kamau@skillsphere.demo',
     avatar: 'https://i.pravatar.cc/150?img=51',
     createdAt: '2025-07-20T10:00:00Z',
+    emailConfirmedAt: '2025-07-20T10:00:00Z',
   },
   {
     id: 'user-learner-2',

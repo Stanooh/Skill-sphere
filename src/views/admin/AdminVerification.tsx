@@ -16,7 +16,6 @@ import {
   adminRejectApplication,
   adminSuspendMentor,
   adminReviewSkill,
-  adminRequestEvidence,
 } from '@/services/mentorVerificationService';
 import { getMentorProfile } from '@/services/dataService';
 import { GraduationCap, Award, Briefcase } from 'lucide-react';
@@ -129,14 +128,6 @@ export function AdminVerificationPage() {
       () => adminReviewSkill(skillVerifId, decision, feedback.trim() || undefined),
       `Skill marked ${decision.replace(/-/g, ' ')}.`
     );
-  };
-
-  const handleRequestEvidence = (skillId: string) => {
-    if (!selected || !feedback.trim()) {
-      show('Provide feedback for the evidence request.', 'error');
-      return;
-    }
-    handleAction(() => adminRequestEvidence(selected.id, skillId, feedback.trim()), 'Additional evidence requested.');
   };
 
   const stats = [
@@ -377,7 +368,7 @@ export function AdminVerificationPage() {
                 <div className="card p-6">
                   <div className="mb-4">
                     <h2 className="text-lg font-semibold text-ink">Competency review</h2>
-                    <p className="text-sm text-ink-400">Each skill has its own decision. Approving one never approves the others.</p>
+                    <p className="text-sm text-ink-400">Review the selected skills and professional information before making a competency decision.</p>
                   </div>
                   <div className="space-y-4">
                     {selected.skills.map((skill) => (
@@ -385,7 +376,11 @@ export function AdminVerificationPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <h3 className="font-medium text-ink">{skill.skillName}</h3>
-                            <p className="text-xs text-ink-300">{skill.evidenceData?.length ?? 0} evidence item(s)</p>
+                            <p className="text-xs text-ink-300">
+                              {skill.evidenceData?.length
+                                ? `${skill.evidenceData.length} optional supporting item(s)`
+                                : 'No optional supporting material'}
+                            </p>
                           </div>
                           <Badge variant={
                             skill.status === 'verified' ? 'green' :
@@ -413,9 +408,6 @@ export function AdminVerificationPage() {
                         <div className="mt-4 flex flex-wrap gap-2">
                           <Button size="sm" onClick={() => handleSkillReview(skill.id, 'verified')} disabled={actionLoading}>
                             <Check className="h-4 w-4" /> Approve skill
-                          </Button>
-                          <Button size="sm" variant="secondary" onClick={() => handleRequestEvidence(skill.skillId)} disabled={actionLoading}>
-                            Request more
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => handleSkillReview(skill.id, 'rejected')} disabled={actionLoading}>
                             <X className="h-4 w-4" /> Reject

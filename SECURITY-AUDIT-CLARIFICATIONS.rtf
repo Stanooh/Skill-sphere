@@ -1,0 +1,218 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}{\f1 Consolas;}}
+\viewkind4\uc1
+\pard\qc\b\f0\fs32 SkillSphere Security Audit Clarifications\b0\fs24\par
+\pard\qc Audit date: 2026-11-18\par
+Supabase project: cvajffkwidhgmguzzzee\par
+Stage 1 - Read-only technical design review\par
+\pard\par
+\pard\b\fs28 1. Mentor Evidence Protection\b0\fs24\par
+\pard\b Current deployed definition\b0\par
+\pard\f1\fs20 CREATE OR REPLACE FUNCTION public.protect_mentor_application_skill_changes()\par
+RETURNS TRIGGER\par
+LANGUAGE plpgsql\par
+SECURITY DEFINER\par
+SET search_path = public\par
+AS $$\par
+BEGIN\par
+  IF public.is_admin() THEN\par
+    RETURN NEW;\par
+  END IF;\par
+  IF OLD.status = 'verified' THEN\par
+    RAISE EXCEPTION 'Verified mentor skill evidence cannot be changed by an applicant';\par
+  END IF;\par
+  IF OLD.application_id IS DISTINCT FROM NEW.application_id\par
+    OR OLD.skill_id IS DISTINCT FROM NEW.skill_id\par
+    OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN\par
+    RAISE EXCEPTION 'Only an administrator can move mentor skill records';\par
+  END IF;\par
+  IF OLD.status IS DISTINCT FROM NEW.status AND NEW.status <> 'pending' THEN\par
+    RAISE EXCEPTION 'Only an administrator can review mentor skill evidence';\par
+  END IF;\par
+  IF OLD.feedback IS DISTINCT FROM NEW.feedback\par
+    OR OLD.reviewed_at IS DISTINCT FROM NEW.reviewed_at THEN\par
+    RAISE EXCEPTION 'Only an administrator can change mentor skill review fields';\par
+  END IF;\par
+  RETURN NEW;\par
+END;\par
+$$;\par
+\pard\f0\fs24
+The current function does not protect evidence_data or skill_name. The applicant update policy therefore permits evidence modification after submission.\par
+\pard\b Proposed corrected definition\b0\par
+\pard\f1\fs20 CREATE OR REPLACE FUNCTION public.protect_mentor_application_skill_changes()\par
+RETURNS TRIGGER\par
+LANGUAGE plpgsql\par
+SECURITY DEFINER\par
+SET search_path = public, pg_temp\par
+AS $$\par
+DECLARE\par
+  application_status text;\par
+BEGIN\par
+  IF public.is_admin() THEN RETURN NEW; END IF;\par
+  IF OLD.application_id IS DISTINCT FROM NEW.application_id\par
+    OR OLD.skill_id IS DISTINCT FROM NEW.skill_id\par
+    OR OLD.skill_name IS DISTINCT FROM NEW.skill_name\par
+    OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN\par
+    RAISE EXCEPTION 'Only an administrator can change mentor skill identity';\par
+  END IF;\par
+  IF OLD.feedback IS DISTINCT FROM NEW.feedback\par
+    OR OLD.reviewed_at IS DISTINCT FROM NEW.reviewed_at THEN\par
+    RAISE EXCEPTION 'Only an administrator can change mentor skill review fields';\par
+  END IF;\par
+  SELECT ma.status INTO application_status\par
+  FROM public.mentor_applications AS ma\par
+  WHERE ma.id = OLD.application_id AND ma.user_id = auth.uid();\par
+  IF application_status IS NULL THEN\par
+    RAISE EXCEPTION 'Mentor application ownership could not be verified';\par
+  END IF;\par
+  IF OLD.status = 'verified' THEN\par
+    RAISE EXCEPTION 'Verified mentor skill evidence cannot be changed by an applicant';\par
+  END IF;\par
+  IF OLD.status IS DISTINCT FROM NEW.status AND NOT (\par
+    (application_status IN ('not_applied', 'verification_failed') AND NEW.status = 'pending')\par
+    OR (application_status = 'pending_verification'\par
+        AND OLD.status = 'needs-evidence' AND NEW.status = 'pending')\par
+  ) THEN\par
+    RAISE EXCEPTION 'Invalid applicant skill status transition';\par
+  END IF;\par
+  IF OLD.evidence_data IS DISTINCT FROM NEW.evidence_data AND NOT (\par
+    application_status IN ('not_applied', 'verification_failed')\par
+    OR (application_status = 'pending_verification' AND OLD.status = 'needs-evidence')\par
+  ) THEN\par
+    RAISE EXCEPTION 'Mentor evidence is immutable after submission';\par
+  END IF;\par
+  RETURN NEW;\par
+END;\par
+$$;\par
+\pard\f0\fs24
+Administrators remain authorized because the first branch returns NEW for public.is_admin(). RLS and the administrator check continue to control who can reach the update.\par
+\pard\par
+\pard\b\fs28 2. Mentor Approval\b0\fs24\par
+\pard\b Current deployed definition\b0\par
+\pard\f1\fs20 CREATE OR REPLACE FUNCTION public.admin_approve_mentor_application(application_id UUID)\par
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$\par
+DECLARE applicant_id UUID;\par
+BEGIN\par
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Administrator access required'; END IF;\par
+  SELECT user_id INTO applicant_id\par
+  FROM public.mentor_applications\par
+  WHERE id = application_id AND competency_verified = true AND status <> 'suspended'\par
+  FOR UPDATE;\par
+  IF applicant_id IS NULL THEN\par
+    RAISE EXCEPTION 'Application not found or competency verification has not passed';\par
+  END IF;\par
+  UPDATE public.mentor_applications\par
+  SET status = 'approved', admin_approved = true,\par
+      approved_at = timezone('utc'::text, now()),\par
+      reviewed_by = auth.uid(), updated_at = timezone('utc'::text, now())\par
+  WHERE id = application_id;\par
+  UPDATE public.profiles SET role = 'mentor', updated_at = timezone('utc'::text, now())\par
+  WHERE id = applicant_id;\par
+END;\par
+$$;\par
+\pard\f0\fs24
+The current function checks administrator authorization and competency verification, but not identity verification or the required pending_admin_approval status.\par
+\pard\b Proposed corrected definition\b0\par
+\pard\f1\fs20 CREATE OR REPLACE FUNCTION public.admin_approve_mentor_application(application_id UUID)\par
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$\par
+DECLARE applicant_id UUID;\par
+BEGIN\par
+  IF auth.uid() IS NULL OR NOT public.is_admin() THEN\par
+    RAISE EXCEPTION 'Administrator access required';\par
+  END IF;\par
+  SELECT ma.user_id INTO applicant_id\par
+  FROM public.mentor_applications AS ma\par
+  WHERE ma.id = admin_approve_mentor_application.application_id\par
+    AND ma.status = 'pending_admin_approval'\par
+    AND ma.identity_verified = true\par
+    AND ma.competency_verified = true\par
+    AND ma.admin_approved = false\par
+  FOR UPDATE;\par
+  IF applicant_id IS NULL THEN\par
+    RAISE EXCEPTION 'Application is not eligible for administrator approval';\par
+  END IF;\par
+  UPDATE public.mentor_applications\par
+  SET status = 'approved', admin_approved = true,\par
+      approved_at = timezone('utc'::text, now()), reviewed_by = auth.uid(),\par
+      updated_at = timezone('utc'::text, now())\par
+  WHERE id = admin_approve_mentor_application.application_id\par
+    AND status = 'pending_admin_approval'\par
+    AND identity_verified = true AND competency_verified = true\par
+    AND admin_approved = false;\par
+  IF NOT FOUND THEN RAISE EXCEPTION 'Application approval update failed'; END IF;\par
+  UPDATE public.profiles SET role = 'mentor', updated_at = timezone('utc'::text, now())\par
+  WHERE id = applicant_id;\par
+END;\par
+$$;\par
+\pard\f0\fs24
+\pard\b\fs28 3. Database Grants\b0\fs24\par
+\pard
+Current production grants include broad ALL privileges for anon and authenticated on mentor_application_skills, mentor_applications, mentor_verification_history, and profiles. Important RPCs also have broad grants to anon, authenticated, and service_role.\par
+\pard
+Proposed grants:\par
+\pard\li360
+profiles: anon none; authenticated SELECT; service_role ALL.\par
+mentor_applications: anon none; authenticated SELECT, INSERT, UPDATE; service_role ALL.\par
+mentor_application_skills: anon none; authenticated SELECT, INSERT, UPDATE; service_role ALL.\par
+mentor_verification_history: anon none; authenticated SELECT; service_role ALL.\par
+submit_mentor_application(uuid): authenticated EXECUTE only.\par
+admin_approve_mentor_application(uuid): authenticated EXECUTE only.\par
+is_admin(): authenticated EXECUTE only.\par
+Trigger and event-trigger functions: no client grants.\par
+\pard\li0
+These permissions preserve all inspected application operations. No inspected browser call site requires client-side deletes on the application tables or direct profile insertion.\par
+\pard\par
+\pard\b\fs28 4. Migration Baseline\b0\fs24\par
+Production contains application objects but reports empty migration history. The baseline will be generated from the verified live application-owned schema, excluding managed Auth and Storage internals.\par
+\pard\li360
+1. Capture and review the live schema.\par
+2. Create a baseline migration locally for application-owned objects only.\par
+3. Validate it on a fresh local database and a local database with representative existing rows.\par
+4. Compare columns, constraints, functions, triggers, policies, and grants with production.\par
+5. Mark the baseline as applied in production using migration history repair, rather than replaying its DDL.\par
+6. Apply all later migrations normally and individually.\par
+\pard\li0
+The proposed sequence is:\par
+\pard\li360\f1\fs20
+20261118000000_baseline_public_schema.sql\par
+20261118000001_harden_mentor_skill_immutability.sql\par
+20261118000002_require_identity_for_mentor_approval.sql\par
+20261118000003_harden_public_grants.sql\par
+20261118000004_align_profile_name_mapping.sql\par
+20261118000005_configure_avatar_storage.sql\par
+20261118000006_configure_private_mentor_verification_storage.sql\par
+\pard\f0\fs24\li0
+Existing rows are preserved because the baseline is not replayed against production, migration repair changes history only, and later migrations contain no unreviewed destructive operations.\par
+\pard\par
+\pard\b\fs28 5. Profile and Avatar Compatibility\b0\fs24\par
+Use production's existing full_name column as canonical. Change application queries from profiles.name to profiles.full_name and map full_name to the existing UI name field. Do not rename the production column.\par
+\pard
+Keep avatar_url in Auth user_metadata. Do not add profiles.avatar_url solely for this issue. Create the missing avatars bucket and preserve existing Auth metadata values.\par
+\pard\par
+\pard\b\fs28 6. Storage\b0\fs24\par
+\pard\b Avatars\b0\par
+Proposed configuration: public bucket named avatars, 5 MiB limit, MIME types image/jpeg, image/png, and image/webp. Public SELECT is allowed; authenticated INSERT, UPDATE, and DELETE require the first path segment to equal auth.uid(). Anonymous upload, update, and delete are not allowed.\par
+\pard\b Private mentor-verification\b0\par
+Proposed configuration: private bucket named mentor-verification, 10 MiB limit, MIME types application/pdf, image/jpeg, image/png, and image/webp. Paths use user_id/application_id/document_id.\par
+Applicants may upload and read only their own application evidence. Administrators may read, update, and delete evidence through public.is_admin(). Anonymous users have no access. Private reads use short-lived signed URLs.\par
+\pard\par
+\pard\b\fs28 7. localStorage Scope\b0\fs24\par
+The initial security-hardening implementation will not rewrite the localStorage data layer. It will address database integrity, RLS, grants, Storage, migration baseline, profile compatibility, and tests. Moving sessions, workshops, roadmaps, notifications, recommendations, and profiles to Supabase is deferred to a separate architectural phase.\par
+\pard\par
+\pard\b\fs28 8. Testing and Rollback\b0\fs24\par
+Local fixtures will contain learner, pending, verification-failed, pending-admin-approval, approved, rejected, and suspended applications, plus pending, needs-evidence, and verified skill rows.\par
+Every migration will be tested against a fresh local database and a local database containing representative existing rows. Tests will verify RLS, unauthorized updates, privilege escalation, status transitions, Storage ownership, Auth behavior, constraints, and data preservation.\par
+Deployment will stop on any unexpected authorization success/failure, schema mismatch, policy omission, or data change. A production backup is required before deployment. Failed migrations will use transactional rollback where possible, otherwise a reviewed forward fix or backup restoration.\par
+\pard\par
+\pard\b\fs28 9. Revised Implementation Order\b0\fs24\par
+\pard\li360
+1. Critical database fixes: evidence immutability and approval prerequisites.\par
+2. Mentor workflow: valid status transitions and verification history.\par
+3. RLS and grants: least-privilege table and RPC permissions.\par
+4. Storage: avatars and private mentor-verification buckets and policies.\par
+5. Migration baseline: tracked public schema and production alignment.\par
+6. Frontend compatibility: full_name mapping, avatar integration, and lint fixes.\par
+7. Future architecture: move authoritative domain data out of localStorage and implement secure account deletion.\par
+\pard\li0
+\pard\b Stage 2 has not started. Explicit approval is required before implementation.\b0\par
+}
