@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { useState } from 'react';
 
 interface AvatarProps {
   src?: string;
@@ -22,6 +23,7 @@ const sizePixels = {
 };
 
 export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -31,7 +33,7 @@ export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) 
 
   return (
     <div className={`${sizeClasses[size]} rounded-full overflow-hidden shrink-0 ${className}`}>
-      {src ? (
+      {src && !imageFailed ? (
         <Image
           src={src}
           alt={name}
@@ -39,6 +41,7 @@ export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) 
           height={sizePixels[size]}
           unoptimized
           className="w-full h-full object-cover"
+          onError={() => setImageFailed(true)}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-brand-900 text-brand-200 font-semibold">
