@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
 import { Input, Textarea, Select } from '@/components/ui/Input';
-import { Star, MapPin, Bookmark, Calendar, Award, Briefcase, GraduationCap } from 'lucide-react';
+import { Star, MapPin, Bookmark, Calendar, Award, Briefcase, GraduationCap, MessageSquare } from 'lucide-react';
 import {
   getMentor,
   isMentorSaved,
@@ -215,6 +215,14 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
                 <Bookmark className={`w-4 h-4 ${saved ? 'fill-brand text-brand' : ''}`} />
                 {saved ? 'Saved' : 'Save Mentor'}
               </Button>
+            )}
+            {user?.role === 'learner' && user.id !== id && (
+              <Link href={`/learner/messages?mentorId=${id}`} className="block mt-3">
+                <Button variant="secondary" fullWidth className="flex items-center justify-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-brand" />
+                  Message Mentor
+                </Button>
+              </Link>
             )}
           </div>
 

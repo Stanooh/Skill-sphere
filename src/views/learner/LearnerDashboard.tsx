@@ -30,8 +30,7 @@ export function LearnerDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    const learnerProfile = getLearnerProfile(user.id);
-    void getRecommendedEligibleMentors(learnerProfile?.skillIds ?? []).then(setRecommendations);
+    void getRecommendedEligibleMentors(user.id).then(setRecommendations);
   }, [user]);
 
   if (!user) return null;

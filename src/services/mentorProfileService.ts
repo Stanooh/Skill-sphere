@@ -151,22 +151,92 @@ export async function getEligibleMentor(userId: string): Promise<Mentor | null> 
   return mentors.find((mentor) => mentor.user.id === userId) ?? null;
 }
 
-export async function getRecommendedEligibleMentors(learnerSkillIds: string[]): Promise<MentorRecommendation[]> {
+export async function getLearnerProfileFromSupabase(userId: string): Promise<{ skillIds: string[] } | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('learner_profiles')
+    .select('skill_ids')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return { skillIds: (data.skill_ids as string[]) ?? [] };
+}
+
+export async function getRecommendedEligibleMentors(
+  learnerSkillIdsOrUserId: string[] | string
+): Promise<MentorRecommendation[]> {
+  let learnerSkillIds: string[] = [];
+
+  if (typeof learnerSkillIdsOrUserId === 'string') {
+    const dbLearner = await getLearnerProfileFromSupabase(learnerSkillIdsOrUserId);
+    if (dbLearner && dbLearner.skillIds && dbLearner.skillIds.length > 0) {
+      learnerSkillIds = dbLearner.skillIds;
+    } else {
+      // Fallback to local profile if available
+      try {
+        const { getLearnerProfile } = await import('@/services/dataService');
+        const local = getLearnerProfile(learnerSkillIdsOrUserId);
+        learnerSkillIds = local?.skillIds ?? [];
+      } catch {
+        learnerSkillIds = [];
+      }
+    }
+  } else {
+    learnerSkillIds = learnerSkillIdsOrUserId;
+  }
+
   const mentors = await getEligibleMentors();
-  const learnerSkills = new Set(learnerSkillIds);
-  return mentors
+  const catalogue = getSkills();
+  const learnerSkillsSet = new Set(learnerSkillIds);
+
+  // Map related skill IDs for fuzzy matching
+  const relatedSkillMap = new Map<string, string[]>();
+  for (const s of catalogue) {
+    if (s.relatedSkillIds) {
+      relatedSkillMap.set(s.id, s.relatedSkillIds);
+    }
+  }
+
+  const recommendations = mentors
     .map((mentor) => {
-      const matchingSkills = mentor.skills.filter((skill) => learnerSkills.has(skill.id));
-      const matchScore = matchingSkills.length * 10;
+      const exactMatchingSkills = mentor.skills.filter((skill) => learnerSkillsSet.has(skill.id));
+
+      const relatedMatchingSkills = mentor.skills.filter((skill) => {
+        if (learnerSkillsSet.has(skill.id)) return false;
+        const related = relatedSkillMap.get(skill.id) ?? [];
+        return related.some((rId) => learnerSkillsSet.has(rId));
+      });
+
+      const availabilityBonus =
+        mentor.profile.availability === 'available' ? 15 : mentor.profile.availability === 'limited' ? 5 : 0;
+      const ratingBonus = Math.round((mentor.profile.rating || 4.5) * 4);
+
+      const matchScore =
+        exactMatchingSkills.length * 25 +
+        relatedMatchingSkills.length * 10 +
+        availabilityBonus +
+        ratingBonus;
+
+      const allMatching = [...exactMatchingSkills, ...relatedMatchingSkills];
+
+      const matchPercentage =
+        learnerSkillsSet.size > 0
+          ? Math.min(100, Math.round((exactMatchingSkills.length / learnerSkillsSet.size) * 100))
+          : Math.min(100, Math.round(((mentor.profile.rating || 4.5) / 5) * 85));
+
       return {
         mentor,
         matchScore,
-        matchingSkills,
-        matchPercentage: mentor.skills.length > 0
-          ? Math.round((matchingSkills.length / mentor.skills.length) * 100)
-          : 0,
+        matchingSkills: allMatching.length > 0 ? allMatching : mentor.skills.slice(0, 3),
+        matchPercentage,
       };
     })
-    .filter((recommendation) => recommendation.matchingSkills.length > 0)
+    .filter((rec) => {
+      if (learnerSkillsSet.size === 0) return true; // show top-rated available mentors
+      return rec.matchingSkills.length > 0 && rec.matchPercentage > 0;
+    })
     .sort((a, b) => b.matchScore - a.matchScore);
+
+  return recommendations;
 }

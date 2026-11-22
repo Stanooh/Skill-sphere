@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Star, MapPin, Bookmark, Calendar } from 'lucide-react';
+import { Star, MapPin, Bookmark, Calendar, MessageSquare } from 'lucide-react';
 import type { Mentor } from '@/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -74,8 +74,13 @@ export function MentorCard({
         <Link href={`/mentors/${mentor.user.id}`} className="flex-1">
           <Button variant="secondary" fullWidth>View Profile</Button>
         </Link>
+        <Link href={`/learner/messages?mentorId=${mentor.user.id}`} title="Message Mentor">
+          <Button variant="ghost" className="px-2.5 text-ink-400 hover:text-brand" aria-label="Message Mentor">
+            <MessageSquare className="w-4 h-4" />
+          </Button>
+        </Link>
         {onSaveToggle && (
-          <Button variant="ghost" onClick={onSaveToggle} className="px-3">
+          <Button variant="ghost" onClick={onSaveToggle} className="px-2.5">
             <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-brand text-brand' : 'text-ink-400'}`} />
           </Button>
         )}

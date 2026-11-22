@@ -426,3 +426,35 @@ export interface AdminActionLog {
   note?: string;
   createdAt: string;
 }
+
+// --- Direct Messaging Types ---
+
+export interface DirectMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface ConversationParticipant {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role: 'learner' | 'mentor' | 'admin';
+}
+
+export interface Conversation {
+  id: string;
+  learnerId: string;
+  mentorId: string;
+  lastMessageAt: string;
+  createdAt: string;
+  updatedAt: string;
+  otherUser?: ConversationParticipant;
+  lastMessage?: string;
+  unreadCount?: number;
+}
+

@@ -28,10 +28,9 @@ export function LearnerMentorsPage() {
     if (!user) return;
     let active = true;
     const load = async () => {
-      const learnerProfile = getLearnerProfile(user.id);
       const [eligible, recommended] = await Promise.all([
         getEligibleMentors(),
-        getRecommendedEligibleMentors(learnerProfile?.skillIds ?? []),
+        getRecommendedEligibleMentors(user.id),
       ]);
       if (!active) return;
       setAllMentors(eligible);
