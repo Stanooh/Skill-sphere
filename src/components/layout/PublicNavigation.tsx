@@ -50,83 +50,95 @@ export function PublicNavigation() {
     user?.role === 'learner'
       ? '/learner'
       : user?.role === 'mentor'
-      ? '/mentor'
-      : '/admin/dashboard';
+        ? '/mentor'
+        : '/admin/dashboard';
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-ink-200 bg-ink-800/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
-        {/* Logo */}
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-lg"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </span>
-          <span className="text-lg font-bold tracking-tight text-ink">SkillSphere</span>
-        </Link>
-
-        {/* Desktop Navigation Links */}
-        <div className="hidden md:flex items-center gap-1">
-          {publicNavigation.map(([href, label]) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? 'page' : undefined}
-                className={`nav-underline-link btn-ghost text-sm ${active ? 'text-brand font-medium' : ''}`}
-              >
-                <span className="nav-label-underline">{label}</span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Desktop Auth Controls */}
-        <div className="hidden md:flex items-center gap-2">
-          {user ? (
-            <div className="flex items-center gap-3">
-              <Link href={dashboardHref}>
-                <Button size="sm" className="flex items-center gap-1.5">
-                  <LayoutDashboard className="w-4 h-4" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Avatar src={user.avatar} name={user.name} size="sm" />
-            </div>
-          ) : (
-            <>
-              <Link href="/login">
-                <Button variant="secondary" size="sm">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button size="sm">Get Started</Button>
-              </Link>
-            </>
-          )}
-        </div>
-
-        {/* Mobile Hamburger Button */}
-        <div className="flex items-center gap-2 md:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-navigation"
-            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="inline-flex items-center justify-center rounded-lg p-2 text-ink-300 hover:bg-ink-700 hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+    /*
+     * IMPORTANT: `backdrop-filter` (backdrop-blur) on a `position:sticky` element
+     * creates a new containing block for ALL fixed descendants — trapping the
+     * mobile drawer inside the nav box. Fix: apply backdrop-blur only on the
+     * inner bar div, not on the outer <nav>. The outer nav uses z-40 so it
+     * stacks above positioned hero/card elements in <main>.
+     */
+    <nav className="sticky top-0 z-40 border-b border-ink-200">
+      {/* Inner nav bar — backdrop-blur lives here, NOT on the <nav> wrapper */}
+      <div className="bg-ink-800/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
+          {/* Logo */}
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-lg"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
+              <GraduationCap className="h-5 w-5 text-white" />
+            </span>
+            <span className="text-lg font-bold tracking-tight text-ink">SkillSphere</span>
+          </Link>
+
+          {/* Desktop Navigation Links */}
+          <div className="hidden md:flex items-center gap-1">
+            {publicNavigation.map(([href, label]) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`nav-underline-link btn-ghost text-sm ${active ? 'text-brand font-medium' : ''}`}
+                >
+                  <span className="nav-label-underline">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Desktop Auth Controls */}
+          <div className="hidden md:flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-3">
+                <Link href={dashboardHref}>
+                  <Button size="sm" className="flex items-center gap-1.5">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Button>
+                </Link>
+                <Avatar src={user.avatar} name={user.name} size="sm" />
+              </div>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="secondary" size="sm">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm">Get Started</Button>
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Hamburger Button */}
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              className="inline-flex items-center justify-center rounded-lg p-2 text-ink-300 hover:bg-ink-700 hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Menu Overlay & Drawer */}
+      {/* Mobile Menu Overlay & Drawer
+          Lives OUTSIDE the backdrop-blur wrapper so `fixed` positioning is
+          relative to the viewport (initial containing block), not the nav bar. */}
       {mobileMenuOpen && (
         <div
           id="mobile-navigation"
@@ -154,11 +166,10 @@ export function PublicNavigation() {
                     href={href}
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${
-                      active
+                    className={`flex items-center px-3 py-2.5 rounded-lg text-base font-medium transition-colors ${active
                         ? 'bg-brand/10 text-brand font-semibold'
                         : 'text-ink hover:bg-ink-700/60'
-                    }`}
+                      }`}
                   >
                     {label}
                   </Link>
