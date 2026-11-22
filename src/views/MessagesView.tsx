@@ -7,7 +7,6 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ConversationList } from '@/components/messaging/ConversationList';
 import { ChatView } from '@/components/messaging/ChatView';
 import { MessageSquare, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import type { Conversation } from '@/types';
 import {
   getUserConversations,
@@ -29,7 +28,10 @@ export function MessagesView() {
   const convIdParam = searchParams.get('conversationId');
 
   const selectedConvIdRef = useRef<string | null>(null);
-  selectedConvIdRef.current = selectedConv?.id ?? null;
+
+  useEffect(() => {
+    selectedConvIdRef.current = selectedConv?.id ?? null;
+  }, [selectedConv]);
 
   const loadConversations = useCallback(async () => {
     if (!user) return null;

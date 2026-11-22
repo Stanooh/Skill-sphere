@@ -7,7 +7,6 @@ import { MentorCard } from '@/components/mentors/MentorCard';
 import { EmptyState } from '@/components/ui';
 import { Search, Compass } from 'lucide-react';
 import {
-  getLearnerProfile,
   isMentorSaved,
   saveMentor,
   unsaveMentor,

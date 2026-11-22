@@ -26,11 +26,6 @@ export function PublicNavigation() {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
   // Lock body scroll and handle Escape key when mobile menu is open
   useEffect(() => {
     if (!mobileMenuOpen) return;

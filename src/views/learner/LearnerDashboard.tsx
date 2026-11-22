@@ -10,7 +10,6 @@ import { ProgressBar, EmptyState } from '@/components/ui';
 import { MentorCard } from '@/components/mentors/MentorCard';
 import { WorkshopCard } from '@/components/workshops/WorkshopCard';
 import {
-  getLearnerProfile,
   getRoadmap,
   getSessionsForLearner,
   getWorkshops,

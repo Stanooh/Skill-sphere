@@ -40,7 +40,13 @@ export function ChatView({
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [prevConvId, setPrevConvId] = useState(conversation.id);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  if (prevConvId !== conversation.id) {
+    setPrevConvId(conversation.id);
+    setLoading(true);
+  }
 
   const otherUser = conversation.otherUser;
 
@@ -52,7 +58,6 @@ export function ChatView({
   // Load messages and subscribe to real-time events
   useEffect(() => {
     let active = true;
-    setLoading(true);
 
     void getConversationMessages(conversation.id).then((data) => {
       if (!active) return;
