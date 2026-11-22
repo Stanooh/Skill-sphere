@@ -31,8 +31,8 @@ export function AuthShell({ eyebrow, title, description, footer, children }: Aut
       <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1400px] flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-4rem)] lg:flex-row lg:rounded-[2.5rem]">
         <section className="relative hidden min-h-[260px] w-full overflow-hidden bg-[#980868] p-8 text-white md:flex md:flex-col md:justify-between lg:min-h-0 lg:w-[48%] lg:p-12 xl:p-16">
           <Image
-            src="/images/auth/signup.jfif"
-            alt=""
+            src="/images/auth/signup.jpg"
+            alt="Students collaborating and learning together"
             fill
             priority
             sizes="(max-width: 1023px) 100vw, 48vw"

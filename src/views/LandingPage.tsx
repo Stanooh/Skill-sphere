@@ -177,7 +177,7 @@ export function LandingPage() {
               <div className="absolute -bottom-5 -left-5 h-2/3 w-2/3 rounded-[24px] bg-brand-900" />
               <div className="relative aspect-[4/5] overflow-hidden rounded-[24px] bg-ink-800 shadow-card">
                 <Image
-                  src="/images/hero1.jfif"
+                  src="/images/hero1.jpg"
                   alt="A learner developing new skills"
                   fill
                   priority
