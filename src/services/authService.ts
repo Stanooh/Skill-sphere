@@ -8,6 +8,7 @@
 import type { User, UserRole } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { uploadUserAvatar } from './avatarService';
+import { getEmailCallbackUrl } from '@/utils/authUrl';
 import {
   getLearnerProfile,
   getMentorProfile,
@@ -24,7 +25,13 @@ export interface SupabaseAuthResult {
   error?: string;
 }
 
-const LOCAL_EMAIL_REDIRECT_URL = 'http://localhost:3000/auth/callback';
+/**
+ * Dynamically resolves the email callback redirect URL.
+ * Automatically adapts between localhost (development) and Vercel production domain.
+ */
+function getEmailRedirectUrl(): string {
+  return getEmailCallbackUrl('/auth/callback');
+}
 
 async function getProfileBackedUser(
   supabase: ReturnType<typeof createClient>,
@@ -188,6 +195,8 @@ export async function register(
   const supabase = createClient();
   const trimmedEmail = email.trim().toLowerCase();
 
+  const emailRedirectTo = getEmailRedirectUrl();
+
   const { data, error } = await supabase.auth.signUp({
     email: trimmedEmail,
     password,
@@ -196,7 +205,7 @@ export async function register(
         name: name.trim(),
         role: safeRole,
       },
-      emailRedirectTo: LOCAL_EMAIL_REDIRECT_URL,
+      emailRedirectTo,
     },
   });
 
@@ -266,11 +275,13 @@ export async function resendVerificationEmail(email: string): Promise<{ success:
   const supabase = createClient();
   const trimmedEmail = email.trim().toLowerCase();
 
+  const emailRedirectTo = getEmailRedirectUrl();
+
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email: trimmedEmail,
     options: {
-      emailRedirectTo: LOCAL_EMAIL_REDIRECT_URL,
+      emailRedirectTo,
     },
   });
 
