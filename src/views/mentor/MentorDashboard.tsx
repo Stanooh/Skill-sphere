@@ -6,22 +6,41 @@ import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard, EmptyState } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
-import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight, AlertCircle } from 'lucide-react';
+import { Avatar } from '@/components/ui/Avatar';
+import { CalendarDays, ClipboardList, BookOpen, Users, ArrowRight, AlertCircle, Star } from 'lucide-react';
 import {
   getSessionsForMentor,
   getWorkshopsForMentor,
 } from '@/services/dataService';
 import { getMyMentorProfile } from '@/services/mentorProfileService';
-import type { MentorProfile } from '@/types';
+import { getMentorReviews, getMentorRatingSummary } from '@/services/mentorReviewService';
+import type { MentorProfile, MentorReview, MentorRatingSummary } from '@/types';
 
 export function MentorDashboard() {
   const { user } = useAuth();
   const [refreshKey] = useState(0);
   const [profile, setProfile] = useState<MentorProfile | null>(null);
+  const [reviews, setReviews] = useState<MentorReview[]>([]);
+  const [ratingSummary, setRatingSummary] = useState<MentorRatingSummary | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    void getMyMentorProfile(user.id).then(setProfile);
+    let active = true;
+    const load = async () => {
+      const [prof, revs, summary] = await Promise.all([
+        getMyMentorProfile(user.id),
+        getMentorReviews(user.id),
+        getMentorRatingSummary(user.id),
+      ]);
+      if (!active) return;
+      setProfile(prof);
+      setReviews(revs);
+      setRatingSummary(summary);
+    };
+    void load();
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   if (!user) return null;
@@ -57,7 +76,24 @@ export function MentorDashboard() {
         <StatCard label="Pending Requests" value={pendingRequests.length} icon={<ClipboardList className="w-5 h-5" />} />
         <StatCard label="Confirmed Sessions" value={acceptedSessions.length} icon={<CalendarDays className="w-5 h-5" />} />
         <StatCard label="Active Workshops" value={workshops.filter((w) => w.status === 'published').length} icon={<BookOpen className="w-5 h-5" />} />
-        <StatCard label="Rating" value={profile?.rating ?? 'N/A'} icon={<Users className="w-5 h-5" />} sublabel={`${profile?.reviewCount ?? 0} reviews`} />
+        <StatCard
+          label="Rating"
+          value={
+            (ratingSummary ? ratingSummary.totalReviews : (profile?.reviewCount ?? 0)) > 0
+              ? (ratingSummary ? ratingSummary.averageRating : (profile?.rating ?? 0)).toFixed(1)
+              : 'No ratings'
+          }
+          icon={<Users className="w-5 h-5" />}
+          sublabel={
+            (ratingSummary ? ratingSummary.totalReviews : (profile?.reviewCount ?? 0)) > 0
+              ? `${ratingSummary ? ratingSummary.totalReviews : profile?.reviewCount} ${
+                  (ratingSummary ? ratingSummary.totalReviews : profile?.reviewCount) === 1
+                    ? 'review'
+                    : 'reviews'
+                }`
+              : '0 reviews'
+          }
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -145,6 +181,122 @@ export function MentorDashboard() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Learner Feedback & Reviews */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Learner Reviews & Ratings</h2>
+            <p className="text-sm text-ink-400">Feedback and performance metrics from learners you have mentored.</p>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Summary Card */}
+          <div className="card p-6 flex flex-col justify-center">
+            <div className="text-center pb-4 border-b border-ink-100">
+              <div className="text-4xl font-extrabold text-ink">
+                {ratingSummary && ratingSummary.totalReviews > 0 ? ratingSummary.averageRating.toFixed(1) : '—'}
+              </div>
+              <div className="flex items-center justify-center gap-1 my-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`w-5 h-5 ${
+                      ratingSummary && ratingSummary.averageRating >= star
+                        ? 'text-amber-500 fill-amber-500'
+                        : ratingSummary && ratingSummary.averageRating >= star - 0.5
+                        ? 'text-amber-500 fill-amber-500/50'
+                        : 'text-ink-200'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-sm text-ink-400">
+                {ratingSummary && ratingSummary.totalReviews > 0
+                  ? `Based on ${ratingSummary.totalReviews} ${ratingSummary.totalReviews === 1 ? 'review' : 'reviews'}`
+                  : 'No reviews received yet'}
+              </p>
+            </div>
+
+            {/* Distribution Bars */}
+            <div className="space-y-2 pt-4">
+              {[5, 4, 3, 2, 1].map((stars) => {
+                const count = ratingSummary?.distribution[stars as 1 | 2 | 3 | 4 | 5] ?? 0;
+                const total = ratingSummary?.totalReviews ?? 0;
+                const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                return (
+                  <div key={stars} className="flex items-center gap-2 text-xs">
+                    <span className="w-12 text-ink-400 flex items-center gap-1 font-medium">
+                      {stars} <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    </span>
+                    <div className="flex-1 bg-ink-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-amber-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right text-ink-400">{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Reviews List */}
+          <div className="lg:col-span-2 card p-6">
+            <h3 className="font-semibold text-ink mb-4">Recent Reviews</h3>
+            {reviews.length === 0 ? (
+              <EmptyState
+                icon={<Users className="w-6 h-6" />}
+                title="No reviews yet"
+                description="Once learners complete sessions or attend workshops with you, their verified reviews will appear here."
+              />
+            ) : (
+              <div className="space-y-4 divide-y divide-ink-100">
+                {reviews.map((rev) => (
+                  <div key={rev.id} className="pt-4 first:pt-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar src={rev.learnerAvatar} name={rev.learnerName || 'Learner'} size="sm" />
+                        <div>
+                          <p className="text-sm font-semibold text-ink">{rev.learnerName || 'Learner'}</p>
+                          <p className="text-xs text-ink-400">
+                            {new Date(rev.createdAt).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-3.5 h-3.5 ${
+                              rev.rating >= star
+                                ? 'text-amber-500 fill-amber-500'
+                                : 'text-ink-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {rev.review ? (
+                      <p className="text-sm text-ink-600 leading-relaxed whitespace-pre-line pl-10">
+                        {rev.review}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-ink-400 italic pl-10">Rating provided without written comment.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

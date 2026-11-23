@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
+import { MentorRatingSection } from '@/components/mentors/MentorRatingSection';
 import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Star, MapPin, Bookmark, Calendar, Award, Briefcase, GraduationCap, MessageSquare } from 'lucide-react';
 import {
@@ -36,6 +37,7 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
   );
   const [refreshKey, setRefreshKey] = useState(0);
   const [publicMentor, setPublicMentor] = useState<Mentor | null>(null);
+  const [ratingSummary, setRatingSummary] = useState<{ averageRating: number; totalReviews: number } | null>(null);
 
   const [sessionTitle, setSessionTitle] = useState('');
   const [sessionDesc, setSessionDesc] = useState('');
@@ -138,7 +140,16 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
                 <div className="flex items-center gap-4 mt-2 text-sm text-ink-400">
                   <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {mentor.profile.location}</span>
                   <span className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> {mentor.profile.rating} ({mentor.profile.reviewCount} reviews)
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />{' '}
+                    {(ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount) > 0 ? (
+                      <span>
+                        {(ratingSummary ? ratingSummary.averageRating : mentor.profile.rating).toFixed(1)} (
+                        {ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount}{' '}
+                        {(ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount) === 1 ? 'review' : 'reviews'})
+                      </span>
+                    ) : (
+                      <span>No ratings yet</span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -192,6 +203,17 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
               </div>
             </div>
           </div>
+
+          <MentorRatingSection
+            mentorId={mentor.user.id}
+            mentorName={mentor.user.name}
+            onRatingUpdated={(summary) =>
+              setRatingSummary({
+                averageRating: summary.averageRating,
+                totalReviews: summary.totalReviews,
+              })
+            }
+          />
         </div>
 
         {/* Right: Actions */}
@@ -224,28 +246,6 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
                 </Button>
               </Link>
             )}
-          </div>
-
-          <div className="card p-5">
-            <h3 className="font-semibold text-ink mb-3">Reviews</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'Grace Achieng', rating: 5, text: 'Sarah is an excellent mentor. She helped me understand React patterns I was struggling with.' },
-                { name: 'Kevin Omondi', rating: 5, text: 'Very patient and knowledgeable. Our sessions were always productive.' },
-              ].map((review, idx) => (
-                <div key={idx} className="border-b border-ink-50 last:border-0 pb-3 last:pb-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-ink">{review.name}</span>
-                    <div className="flex">
-                      {Array.from({ length: review.rating }).map((_, i) => (
-                        <Star key={i} className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-ink-400">{review.text}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>

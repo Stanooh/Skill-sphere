@@ -63,8 +63,14 @@ export function AdminDashboard() {
                   </div>
                   <div className="flex items-center gap-1 text-sm">
                     <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                    <span className="font-semibold text-ink">{m.profile.rating}</span>
-                    <span className="text-ink-400">({m.profile.reviewCount})</span>
+                    {m.profile.reviewCount > 0 ? (
+                      <>
+                        <span className="font-semibold text-ink">{m.profile.rating.toFixed(1)}</span>
+                        <span className="text-ink-400">({m.profile.reviewCount})</span>
+                      </>
+                    ) : (
+                      <span className="text-xs text-ink-400">No ratings</span>
+                    )}
                   </div>
                 </div>
               ))}

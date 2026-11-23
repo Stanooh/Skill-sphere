@@ -32,7 +32,12 @@ export function AdminMentorsPage() {
                     <p className="text-sm text-ink-400 truncate">{m.profile.professionalTitle}</p>
                     <div className="flex items-center gap-3 mt-1 text-xs text-ink-400">
                       <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {m.profile.location}</span>
-                      <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-500 fill-amber-500" /> {m.profile.rating} ({m.profile.reviewCount})</span>
+                      <span className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />{' '}
+                        {m.profile.reviewCount > 0
+                          ? `${m.profile.rating.toFixed(1)} (${m.profile.reviewCount})`
+                          : 'No ratings yet'}
+                      </span>
                     </div>
                   </div>
                   <Badge variant={m.profile.availability === 'available' ? 'green' : m.profile.availability === 'limited' ? 'amber' : 'red'}>

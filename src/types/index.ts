@@ -458,3 +458,39 @@ export interface Conversation {
   unreadCount?: number;
 }
 
+// --- Mentor Reviews & Ratings ---
+
+export interface MentorReview {
+  id: string;
+  mentorId: string;
+  learnerId: string;
+  learnerName?: string;
+  learnerAvatar?: string;
+  sessionId?: string;
+  workshopId?: string;
+  rating: number; // 1 to 5
+  review: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MentorRatingSummary {
+  mentorId: string;
+  averageRating: number;
+  totalReviews: number;
+  distribution: {
+    '1': number;
+    '2': number;
+    '3': number;
+    '4': number;
+    '5': number;
+  };
+}
+
+export interface RatingEligibility {
+  canRate: boolean;
+  reason?: string;
+  existingReview?: MentorReview | null;
+}
+
+

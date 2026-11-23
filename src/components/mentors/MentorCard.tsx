@@ -35,7 +35,10 @@ export function MentorCard({
               <MapPin className="w-3 h-3" /> {mentor.profile.location}
             </span>
             <span className="flex items-center gap-1">
-              <Star className="w-3 h-3 text-amber-500 fill-amber-500" /> {mentor.profile.rating} ({mentor.profile.reviewCount})
+              <Star className="w-3 h-3 text-amber-500 fill-amber-500" />{' '}
+              {mentor.profile.reviewCount > 0
+                ? `${mentor.profile.rating.toFixed(1)} (${mentor.profile.reviewCount})`
+                : 'No ratings yet'}
             </span>
           </div>
         </div>

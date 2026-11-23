@@ -69,8 +69,14 @@ export function AdminReportsPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <span className="text-sm font-semibold text-ink">{m.rating}</span>
-                  <span className="text-xs text-ink-400">({m.reviewCount})</span>
+                  {m.reviewCount > 0 ? (
+                    <>
+                      <span className="text-sm font-semibold text-ink">{m.rating.toFixed(1)}</span>
+                      <span className="text-xs text-ink-400">({m.reviewCount})</span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-ink-400">No ratings</span>
+                  )}
                 </div>
               </div>
             ))}
