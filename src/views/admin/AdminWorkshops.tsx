@@ -1,19 +1,38 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui';
 import { BookOpen, CalendarDays, Clock, Users } from 'lucide-react';
-import { getWorkshops, getMentor, getSkillById } from '@/services/dataService';
+import { getMentor, getSkillById } from '@/services/dataService';
+import { getAllWorkshops } from '@/services/workshopService';
+import type { Workshop } from '@/types';
 
 export function AdminWorkshopsPage() {
-  const workshops = getWorkshops();
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void getAllWorkshops().then((data) => {
+      if (active) {
+        setWorkshops(data);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <DashboardLayout>
       <PageHeader title="Workshops" description="View all workshops on the platform." />
 
-      {workshops.length === 0 ? (
+      {loading ? (
+        <div className="card p-12 text-center text-sm text-ink-300">Loading workshops...</div>
+      ) : workshops.length === 0 ? (
         <div className="card">
           <EmptyState icon={<BookOpen className="w-6 h-6" />} title="No workshops" description="Workshops will appear here once mentors create them." />
         </div>

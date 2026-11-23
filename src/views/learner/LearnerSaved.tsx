@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
@@ -9,31 +9,57 @@ import { EmptyState } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
 import { Bookmark } from 'lucide-react';
 import Link from 'next/link';
-import { getSavedMentors, getMentor, unsaveMentor } from '@/services/dataService';
+import { getSavedMentors, unsaveMentor } from '@/services/savedMentorService';
+import { getMentor } from '@/services/dataService';
+import type { Mentor } from '@/types';
 
 export function LearnerSavedPage() {
   const { user } = useAuth();
   const { show } = useToast();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [savedMentors, setSavedMentors] = useState<Mentor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadSaved = useCallback(async () => {
+    if (!user) return;
+    const records = await getSavedMentors(user.id);
+    const mentors = records
+      .map((s) => getMentor(s.mentorId))
+      .filter((m): m is NonNullable<typeof m> => m !== undefined);
+    setSavedMentors(mentors);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      if (active) await loadSaved();
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [loadSaved]);
 
   if (!user) return null;
 
-  const saved = getSavedMentors(user.id);
-  const savedMentors = saved
-    .map((s) => getMentor(s.mentorId))
-    .filter((m): m is NonNullable<typeof m> => m !== undefined);
-
-  const handleUnsave = (mentorId: string) => {
-    unsaveMentor(user.id, mentorId);
-    show('Mentor removed from saved.', 'info');
-    setRefreshKey((k) => k + 1);
+  const handleUnsave = async (mentorId: string) => {
+    try {
+      await unsaveMentor(user.id, mentorId);
+      show('Mentor removed from saved.', 'info');
+      await loadSaved();
+    } catch (err) {
+      console.error(err);
+      show('Failed to remove saved mentor.', 'error');
+    }
   };
 
   return (
-    <DashboardLayout key={refreshKey}>
+    <DashboardLayout>
       <PageHeader title="Saved Mentors" description="Mentors you've bookmarked for later." />
 
-      {savedMentors.length === 0 ? (
+      {loading ? (
+        <div className="card p-12 text-center text-sm text-ink-300">Loading saved mentors...</div>
+      ) : savedMentors.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={<Bookmark className="w-6 h-6" />}

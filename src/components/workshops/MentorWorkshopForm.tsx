@@ -119,16 +119,16 @@ function MentorWorkshopFormFields({ mentorId, open, workshop, onClose, onSaved }
   const update = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-  const handleSave = (publish: boolean) => {
+  const handleSave = async (publish: boolean) => {
     const problem = validate(form);
     if (problem) {
       setError(problem);
       return;
     }
     try {
-      const saved = saveMentorWorkshop(mentorId, buildInput(form), workshop?.id);
+      const saved = await saveMentorWorkshop(mentorId, buildInput(form), workshop?.id);
       if (publish && saved.status !== 'published') {
-        setMentorWorkshopStatus(mentorId, saved.id, 'published');
+        await setMentorWorkshopStatus(mentorId, saved.id, 'published');
       }
       onSaved(publish ? 'Workshop published.' : workshop ? 'Workshop updated.' : 'Draft saved.');
     } catch (err) {

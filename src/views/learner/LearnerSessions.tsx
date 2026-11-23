@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, Tabs } from '@/components/ui';
 import { CalendarDays, Clock, Video } from 'lucide-react';
-import { getSessionsForLearner, getMentor } from '@/services/dataService';
-import type { SessionStatus } from '@/types';
+import { getSessionsForLearner } from '@/services/sessionService';
+import { getMentor } from '@/services/dataService';
+import type { Session, SessionStatus } from '@/types';
 import Link from 'next/link';
 
 const statusConfig: Record<SessionStatus, { label: string; variant: 'amber' | 'green' | 'red' | 'gray' }> = {
@@ -23,10 +24,25 @@ const statusConfig: Record<SessionStatus, { label: string; variant: 'amber' | 'g
 export function LearnerSessionsPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState('upcoming');
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void getSessionsForLearner(user.id).then((data) => {
+      if (active) {
+        setSessions(data);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (!user) return null;
 
-  const sessions = getSessionsForLearner(user.id);
   const upcoming = sessions.filter((s) => s.status === 'pending' || s.status === 'accepted');
   const completed = sessions.filter((s) => s.status === 'completed');
   const cancelled = sessions.filter((s) => s.status === 'declined' || s.status === 'cancelled');
@@ -48,7 +64,9 @@ export function LearnerSessionsPage() {
         />
       </div>
 
-      {displayed.length === 0 ? (
+      {loading ? (
+        <div className="card p-12 text-center text-sm text-ink-300">Loading sessions...</div>
+      ) : displayed.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={<CalendarDays className="w-6 h-6" />}
@@ -81,23 +99,39 @@ export function LearnerSessionsPage() {
                       </Link>
                     )}
                     <div className="flex-1">
-                      <h3 className="font-semibold text-ink">{session.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-ink">{session.title}</h3>
+                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                      </div>
                       <p className="text-sm text-ink-400 mt-0.5">{session.description}</p>
                       <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-ink-400">
-                        {mentor && <span>with {mentor.user.name}</span>}
-                        <span className="flex items-center gap-1"><CalendarDays className="w-4 h-4" /> {new Date(session.scheduledDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {session.durationMinutes} min</span>
+                        {mentor && (
+                          <Link href={`/learner/mentors/${mentor.user.id}`} className="hover:text-brand font-medium">
+                            with {mentor.user.name}
+                          </Link>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-4 h-4" />
+                          {new Date(session.scheduledDate).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {session.durationMinutes} min
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                  {session.status === 'accepted' && (
+                    <Button size="sm" variant="secondary" className="gap-1.5 shrink-0">
+                      <Video className="w-4 h-4" />
+                      Join Call
+                    </Button>
+                  )}
                 </div>
-                {session.status === 'accepted' && (
-                  <div className="mt-4 pt-4 border-t border-ink-100 flex items-center gap-2">
-                    <Button size="sm"><Video className="w-4 h-4" /> Join Session</Button>
-                    <span className="text-xs text-ink-400">Session link will be available 15 minutes before start time.</span>
-                  </div>
-                )}
               </div>
             );
           })}

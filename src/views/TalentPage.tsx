@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -20,6 +20,7 @@ import { Modal } from '@/components/ui/Modal';
 import {
   searchTalentWithOptions,
   getTalentSkills,
+  fetchTalentProfiles,
   createEmployerContactRequest,
 } from '@/services/talentService';
 import { getAcceptedRecommendationsForStudent } from '@/services/recommendationService';
@@ -54,6 +55,17 @@ export function TalentPage() {
   const [employerEmail, setEmployerEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [message, setMessage] = useState('');
+  const [, setDataLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void fetchTalentProfiles().then(() => {
+      if (active) setDataLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const skills = useMemo(() => getTalentSkills(), []);
 
@@ -66,12 +78,12 @@ export function TalentPage() {
     });
   }, [query, selectedSkill, selectedCareerArea, sortBy]);
 
-  const handleContact = (e: React.FormEvent) => {
+  const handleContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTalent) return;
     if (!employerName.trim() || !employerEmail.trim() || !companyName.trim() || !message.trim()) return;
 
-    createEmployerContactRequest({
+    await createEmployerContactRequest({
       learnerId: selectedTalent.user.id,
       employerName: employerName.trim(),
       employerEmail: employerEmail.trim(),

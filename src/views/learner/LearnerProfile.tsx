@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -18,7 +18,7 @@ import {
   Star,
   Building,
 } from 'lucide-react';
-import type { SkillLevel, RecommendationApprovalStatus } from '@/types';
+import type { SkillLevel, RecommendationApprovalStatus, StudentRecommendation, EmployerContactRequest } from '@/types';
 import {
   getLearnerProfile,
   updateLearnerProfile,
@@ -64,9 +64,43 @@ export function LearnerProfilePage() {
     profile?.employerVisibility ?? false
   );
 
-  const [, setRecommendationsRefreshKey] = useState(0);
-  const recommendations = user ? getRecommendationsForStudent(user.id) : [];
-  const contactRequests = user ? getEmployerContactRequestsForLearner(user.id) : [];
+  const [recommendations, setRecommendations] = useState<StudentRecommendation[]>([]);
+  const [contactRequests, setContactRequests] = useState<EmployerContactRequest[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const load = async () => {
+      const supabase = createClient();
+      const [{ data: lpData }, recs, reqs] = await Promise.all([
+        supabase.from('learner_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        getRecommendationsForStudent(user.id),
+        getEmployerContactRequestsForLearner(user.id),
+      ]);
+
+      if (!active) return;
+
+      if (lpData) {
+        if (lpData.bio) setBio(lpData.bio);
+        if (lpData.location) setLocation(lpData.location);
+        if (lpData.education) setEducation(lpData.education);
+        if (lpData.learning_goal) setLearningGoal(lpData.learning_goal);
+        if (lpData.target_timeframe) setTargetTimeframe(lpData.target_timeframe);
+        if (lpData.available_hours_per_week) setAvailableHours(lpData.available_hours_per_week);
+        if (lpData.skill_ids) setSelectedSkillIds(lpData.skill_ids);
+        if (lpData.skill_levels) setSkillLevels(lpData.skill_levels);
+        if (typeof lpData.employer_visibility === 'boolean') setEmployerVisibility(lpData.employer_visibility);
+      }
+
+      setRecommendations(recs);
+      setContactRequests(reqs);
+    };
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (!user) return null;
 
@@ -97,6 +131,7 @@ export function LearnerProfilePage() {
         skill_ids: selectedSkillIds,
         skill_levels: skillLevels,
         profile_complete: true,
+        employer_visibility: employerVisibility,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
     if (error) {
@@ -108,12 +143,17 @@ export function LearnerProfilePage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleToggleVisibility = () => {
+  const handleToggleVisibility = async () => {
     const nextVal = !employerVisibility;
     setEmployerVisibility(nextVal);
     updateLearnerProfile(user.id, {
       employerVisibility: nextVal,
     });
+    const supabase = createClient();
+    await supabase
+      .from('learner_profiles')
+      .update({ employer_visibility: nextVal, updated_at: new Date().toISOString() })
+      .eq('user_id', user.id);
     show(
       nextVal
         ? 'Your profile is now publicly visible to employers on the Find Talent page.'
@@ -122,12 +162,13 @@ export function LearnerProfilePage() {
     );
   };
 
-  const handleRecommendationDecision = (
+  const handleRecommendationDecision = async (
     recId: string,
     status: RecommendationApprovalStatus
   ) => {
-    updateStudentApproval(recId, user.id, status);
-    setRecommendationsRefreshKey((key) => key + 1);
+    await updateStudentApproval(recId, user.id, status);
+    const recs = getRecommendationsForStudent(user.id);
+    setRecommendations(recs);
     show(
       status === 'accepted'
         ? 'Recommendation accepted. It is now displayed on your public profile.'
@@ -137,7 +178,7 @@ export function LearnerProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    deleteLearnerAccount(user.id);
+    await deleteLearnerAccount(user.id);
     await logout();
     router.push('/');
   };
@@ -514,7 +555,7 @@ export function LearnerProfilePage() {
                     {rec.strengths.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         <span className="text-xs text-ink-400 mr-1">Strengths:</span>
-                        {rec.strengths.map((s) => (
+                        {rec.strengths.map((s: string) => (
                           <span key={s} className="badge bg-ink-200 text-ink-400 text-xs">
                             {s}
                           </span>

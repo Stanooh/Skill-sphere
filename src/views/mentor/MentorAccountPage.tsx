@@ -51,7 +51,7 @@ export function MentorAccountPage() {
   ];
 
   const handleDeleteAccount = async () => {
-    deleteMentorAccount(user.id);
+    await deleteMentorAccount(user.id);
     await logout();
     router.push('/');
   };

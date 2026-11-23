@@ -1,86 +1,194 @@
+import { createClient } from '@/lib/supabase/client';
 import type { StudentRecommendation, RecommendationApprovalStatus } from '@/types';
-import { getDb, pushNotification } from './dataService';
 
-const RECS_KEY = 'skillsphere_student_recommendations';
+type DbRecommendation = {
+  id: string;
+  mentor_id: string;
+  student_id: string;
+  strengths: string[];
+  technical_skills: string[];
+  communication_assessment: string;
+  problem_solving_assessment: string;
+  achievements: string[];
+  career_areas: string[];
+  recommendation: string;
+  student_approval_status: RecommendationApprovalStatus;
+  admin_action: 'none' | 'endorsed' | 'hidden' | 'flagged';
+  created_at: string;
+  updated_at: string;
+};
 
-function readRecs(): StudentRecommendation[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(RECS_KEY);
-    return raw ? (JSON.parse(raw) as StudentRecommendation[]) : [];
-  } catch {
-    return [];
-  }
+function mapRec(row: DbRecommendation): StudentRecommendation {
+  return {
+    id: row.id,
+    mentorId: row.mentor_id,
+    studentId: row.student_id,
+    strengths: row.strengths ?? [],
+    technicalSkills: row.technical_skills ?? [],
+    communicationAssessment: row.communication_assessment,
+    problemSolvingAssessment: row.problem_solving_assessment,
+    achievements: row.achievements ?? [],
+    careerAreas: row.career_areas ?? [],
+    recommendation: row.recommendation,
+    studentApprovalStatus: row.student_approval_status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
-function writeRecs(recs: StudentRecommendation[]): void {
+const recCache = new Map<string, StudentRecommendation>();
+let initialLoaded = false;
+
+async function syncAllRecommendations(): Promise<void> {
   if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(RECS_KEY, JSON.stringify(recs));
-  } catch {
-    // storage unavailable
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('student_recommendations')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return;
+  for (const row of data as DbRecommendation[]) {
+    recCache.set(row.id, mapRec(row));
+  }
+  initialLoaded = true;
+}
+
+function ensureSyncStarted() {
+  if (!initialLoaded && typeof window !== 'undefined') {
+    initialLoaded = true;
+    void syncAllRecommendations();
   }
 }
 
 export function getRecommendationsForStudent(studentId: string): StudentRecommendation[] {
-  return readRecs().filter((r) => r.studentId === studentId);
+  ensureSyncStarted();
+  return Array.from(recCache.values()).filter((r) => r.studentId === studentId);
+}
+
+export async function fetchRecommendationsForStudent(studentId: string): Promise<StudentRecommendation[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('student_recommendations')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return getRecommendationsForStudent(studentId);
+  const list = (data as DbRecommendation[]).map(mapRec);
+  for (const item of list) recCache.set(item.id, item);
+  return list;
 }
 
 export function getRecommendationsForMentor(mentorId: string): StudentRecommendation[] {
-  return readRecs().filter((r) => r.mentorId === mentorId);
+  ensureSyncStarted();
+  return Array.from(recCache.values()).filter((r) => r.mentorId === mentorId);
+}
+
+export async function fetchRecommendationsForMentor(mentorId: string): Promise<StudentRecommendation[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('student_recommendations')
+    .select('*')
+    .eq('mentor_id', mentorId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return getRecommendationsForMentor(mentorId);
+  const list = (data as DbRecommendation[]).map(mapRec);
+  for (const item of list) recCache.set(item.id, item);
+  return list;
 }
 
 export function getAcceptedRecommendationsForStudent(studentId: string): StudentRecommendation[] {
-  return readRecs().filter(
+  ensureSyncStarted();
+  return Array.from(recCache.values()).filter(
     (r) => r.studentId === studentId && r.studentApprovalStatus === 'accepted'
   );
 }
 
-export function hasExistingRecommendation(mentorId: string, studentId: string): boolean {
-  return readRecs().some((r) => r.mentorId === mentorId && r.studentId === studentId);
+export async function fetchAcceptedRecommendationsForStudent(studentId: string): Promise<StudentRecommendation[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('student_recommendations')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('student_approval_status', 'accepted')
+    .neq('admin_action', 'hidden')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return getAcceptedRecommendationsForStudent(studentId);
+  const list = (data as DbRecommendation[]).map(mapRec);
+  for (const item of list) recCache.set(item.id, item);
+  return list;
+}
+
+export function getAllRecommendations(): StudentRecommendation[] {
+  ensureSyncStarted();
+  return Array.from(recCache.values());
+}
+
+export async function fetchAllRecommendations(): Promise<StudentRecommendation[]> {
+  await syncAllRecommendations();
+  return getAllRecommendations();
 }
 
 export function createRecommendation(
   data: Omit<StudentRecommendation, 'id' | 'createdAt' | 'updatedAt' | 'studentApprovalStatus'>
 ): StudentRecommendation | { error: string } {
-  const db = getDb();
-
-  // Validate mentor has an active or completed session with this student
-  const hasSession = db.sessions.some(
-    (s) =>
-      s.mentorId === data.mentorId &&
-      s.learnerId === data.studentId &&
-      (s.status === 'accepted' || s.status === 'completed')
-  );
-  if (!hasSession) {
-    return {
-      error: 'You can only recommend students you have an active or completed session with.',
-    };
-  }
-
-  if (hasExistingRecommendation(data.mentorId, data.studentId)) {
-    return { error: 'You have already submitted a recommendation for this student.' };
-  }
-
-  const recs = readRecs();
+  const tempId = `rec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const now = new Date().toISOString();
+
   const newRec: StudentRecommendation = {
     ...data,
-    id: `rec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: tempId,
     studentApprovalStatus: 'pending',
     createdAt: now,
     updatedAt: now,
   };
-  recs.push(newRec);
-  writeRecs(recs);
 
-  // Notify the student
-  const mentor = db.users.find((u) => u.id === data.mentorId);
-  pushNotification(
-    data.studentId,
-    'New Mentor Recommendation',
-    `${mentor?.name ?? 'Your mentor'} has submitted a professional recommendation for you. Review it in your profile to decide whether to display it publicly.`
-  );
+  recCache.set(newRec.id, newRec);
+
+  if (typeof window !== 'undefined') {
+    const supabase = createClient();
+    void (async () => {
+      try {
+        const { data: inserted, error } = await supabase
+          .from('student_recommendations')
+          .insert({
+            mentor_id: data.mentorId,
+            student_id: data.studentId,
+            strengths: data.strengths,
+            technical_skills: data.technicalSkills,
+            communication_assessment: data.communicationAssessment,
+            problem_solving_assessment: data.problemSolvingAssessment,
+            achievements: data.achievements,
+            career_areas: data.careerAreas,
+            recommendation: data.recommendation,
+            student_approval_status: 'pending',
+            admin_action: 'none',
+          })
+          .select('*')
+          .single();
+
+        if (inserted && !error) {
+          recCache.delete(tempId);
+          recCache.set(inserted.id, mapRec(inserted as DbRecommendation));
+
+          // Notify student
+          await supabase.from('notifications').insert({
+            user_id: data.studentId,
+            notification_type: 'recommendation_received',
+            title: 'New Mentor Recommendation',
+            message: 'A mentor has written a professional recommendation for your profile. Review and accept it to display it publicly.',
+            event_key: `rec_received_${inserted.id}`,
+            read: false,
+          });
+        }
+      } catch (err) {
+        console.error('[recommendationService] createRecommendation error:', err);
+      }
+    })();
+  }
 
   return newRec;
 }
@@ -88,113 +196,99 @@ export function createRecommendation(
 export function updateRecommendation(
   recId: string,
   mentorId: string,
-  updates: Partial<
-    Pick<
-      StudentRecommendation,
-      | 'strengths'
-      | 'technicalSkills'
-      | 'communicationAssessment'
-      | 'problemSolvingAssessment'
-      | 'achievements'
-      | 'careerAreas'
-      | 'recommendation'
-    >
-  >
+  updates: Partial<Omit<StudentRecommendation, 'id' | 'mentorId' | 'studentId' | 'createdAt'>>
 ): StudentRecommendation | { error: string } {
-  const recs = readRecs();
-  const idx = recs.findIndex((r) => r.id === recId && r.mentorId === mentorId);
-  if (idx < 0) {
-    return { error: 'Recommendation not found or you do not have permission to edit it.' };
+  const existing = recCache.get(recId);
+  if (!existing) {
+    return { error: 'Recommendation not found.' };
   }
-  recs[idx] = { ...recs[idx], ...updates, updatedAt: new Date().toISOString() };
-  writeRecs(recs);
-  return recs[idx];
+
+  const updated: StudentRecommendation = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  recCache.set(recId, updated);
+
+  if (typeof window !== 'undefined') {
+    const supabase = createClient();
+    void supabase
+      .from('student_recommendations')
+      .update({
+        strengths: updated.strengths,
+        technical_skills: updated.technicalSkills,
+        communication_assessment: updated.communicationAssessment,
+        problem_solving_assessment: updated.problemSolvingAssessment,
+        achievements: updated.achievements,
+        career_areas: updated.careerAreas,
+        recommendation: updated.recommendation,
+        updated_at: updated.updatedAt,
+      })
+      .eq('id', recId)
+      .eq('mentor_id', mentorId);
+  }
+
+  return updated;
 }
 
 export function withdrawRecommendation(recId: string, mentorId: string): boolean {
-  const recs = readRecs();
-  const idx = recs.findIndex((r) => r.id === recId && r.mentorId === mentorId);
-  if (idx < 0) return false;
-  recs.splice(idx, 1);
-  writeRecs(recs);
-  return true;
-}
+  recCache.delete(recId);
 
-export function updateStudentApproval(
-  recId: string,
-  studentId: string,
-  status: RecommendationApprovalStatus
-): boolean {
-  const recs = readRecs();
-  const idx = recs.findIndex((r) => r.id === recId && r.studentId === studentId);
-  if (idx < 0) return false;
-  recs[idx] = { ...recs[idx], studentApprovalStatus: status, updatedAt: new Date().toISOString() };
-  writeRecs(recs);
-  return true;
-}
+  if (typeof window !== 'undefined') {
+    const supabase = createClient();
+    void supabase
+      .from('student_recommendations')
+      .delete()
+      .eq('id', recId)
+      .eq('mentor_id', mentorId);
+  }
 
-export function getAllRecommendations(): StudentRecommendation[] {
-  return readRecs();
+  return true;
 }
 
 export function adminDeleteRecommendation(recId: string): boolean {
-  const recs = readRecs();
-  const idx = recs.findIndex((r) => r.id === recId);
-  if (idx < 0) return false;
-  recs.splice(idx, 1);
-  writeRecs(recs);
+  recCache.delete(recId);
+
+  if (typeof window !== 'undefined') {
+    const supabase = createClient();
+    void supabase
+      .from('student_recommendations')
+      .delete()
+      .eq('id', recId);
+  }
+
   return true;
 }
 
-export function seedMockRecommendations(): void {
-  if (typeof window === 'undefined') return;
-  const existing = readRecs();
-  if (existing.length > 0) return;
-  const now = new Date().toISOString();
-  const mock: StudentRecommendation[] = [
-    {
-      id: 'rec-mock-1',
-      mentorId: 'user-mentor-1',
-      studentId: 'user-learner-1',
-      strengths: ['Problem solving', 'Quick learner', 'Attention to detail'],
-      technicalSkills: ['React', 'JavaScript', 'TypeScript', 'HTML', 'CSS'],
-      communicationAssessment:
-        'Brian communicates clearly and asks thoughtful questions during sessions. He documents his progress well and follows up consistently.',
-      problemSolvingAssessment:
-        'He approaches problems methodically, breaking them into smaller components. He shows strong debugging skills for his level.',
-      achievements: [
-        'Completed the React Architecture module',
-        'Built a full CRUD application with custom hooks',
-      ],
-      careerAreas: ['Frontend Developer', 'React Developer', 'Full-Stack Developer'],
-      recommendation:
-        'Throughout our mentorship, Brian demonstrated strong problem-solving skills, consistency, and an excellent ability to apply newly learned concepts. He has shown particular strength in frontend development and collaborative project work. I believe he would be a strong candidate for an entry-level frontend developer or React developer position. His dedication and growth mindset set him apart from many learners I have worked with.',
-      studentApprovalStatus: 'accepted',
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: 'rec-mock-2',
-      mentorId: 'user-mentor-4',
-      studentId: 'user-learner-3',
-      strengths: ['Design sensibility', 'UI precision', 'Creative problem solving'],
-      technicalSkills: ['UI/UX Design', 'Figma', 'CSS', 'HTML'],
-      communicationAssessment:
-        "Kevin communicates his design decisions clearly and is very open to feedback. He collaborates effectively and meets deadlines.",
-      problemSolvingAssessment:
-        "Kevin approaches frontend challenges from a designer's perspective, which gives him a unique edge in building pixel-perfect interfaces.",
-      achievements: [
-        'Completed Design Systems with Tailwind workshop',
-        'Created a full component library in Figma',
-      ],
-      careerAreas: ['UI/UX Designer', 'Frontend Developer', 'Product Designer'],
-      recommendation:
-        'Kevin brings a rare combination of strong design instincts and growing technical ability. His work on design systems and interface design demonstrates professional maturity beyond his level. He would excel in a UI/UX design or frontend development role, particularly in product-focused teams.',
-      studentApprovalStatus: 'pending',
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-  writeRecs(mock);
-}
+export async function updateStudentApproval(
+  recId: string,
+  studentId: string,
+  status: RecommendationApprovalStatus
+): Promise<StudentRecommendation | { error: string }> {
+  const existing = recCache.get(recId);
+  if (existing) {
+    existing.studentApprovalStatus = status;
+    existing.updatedAt = new Date().toISOString();
+  }
 
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('student_recommendations')
+    .update({
+      student_approval_status: status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', recId)
+    .eq('student_id', studentId)
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    return { error: error?.message || 'Failed to update approval status.' };
+  }
+
+  const mapped = mapRec(data as DbRecommendation);
+  recCache.set(mapped.id, mapped);
+  return mapped;
+}

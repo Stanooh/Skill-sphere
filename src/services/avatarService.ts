@@ -79,7 +79,7 @@ export async function uploadUserAvatar(userId: string, file: File): Promise<Avat
     const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
     const avatarUrl = urlData.publicUrl;
 
-    // Persist into user's profile metadata in Supabase Auth
+    // Persist into user's profile metadata in Supabase Auth and public.profiles
     const { error: updateAuthError } = await supabase.auth.updateUser({
       data: { avatar_url: avatarUrl },
     });
@@ -88,20 +88,7 @@ export async function uploadUserAvatar(userId: string, file: File): Promise<Avat
       return { success: false, error: 'Picture uploaded but failed to update user profile.' };
     }
 
-    // Also update local mock data if currently running alongside
-    try {
-      const raw = localStorage.getItem('skillsphere_db');
-      if (raw) {
-        const db = JSON.parse(raw);
-        const user = db.users?.find((u: { id: string }) => u.id === userId);
-        if (user) {
-          user.avatar = avatarUrl;
-          localStorage.setItem('skillsphere_db', JSON.stringify(db));
-        }
-      }
-    } catch {
-      // ignore
-    }
+    await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', userId);
 
     return { success: true, avatarUrl };
   } catch (err: unknown) {
@@ -128,25 +115,12 @@ export async function removeUserAvatar(userId: string): Promise<{ success: boole
       // ignore
     }
 
-    // Clear avatar_url in Auth user metadata.
+    // Clear avatar_url in Auth user metadata and public.profiles.
     await supabase.auth.updateUser({
       data: { avatar_url: '' },
     });
 
-    // Update local data
-    try {
-      const raw = localStorage.getItem('skillsphere_db');
-      if (raw) {
-        const db = JSON.parse(raw);
-        const user = db.users?.find((u: { id: string }) => u.id === userId);
-        if (user) {
-          user.avatar = '';
-          localStorage.setItem('skillsphere_db', JSON.stringify(db));
-        }
-      }
-    } catch {
-      // ignore
-    }
+    await supabase.from('profiles').update({ avatar_url: null }).eq('id', userId);
 
     return { success: true };
   } catch (err: unknown) {

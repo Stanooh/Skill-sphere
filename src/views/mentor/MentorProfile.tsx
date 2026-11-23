@@ -255,7 +255,7 @@ function MentorProfileContent({ user, logout }: { user: User; logout: () => Prom
         open={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={async () => {
-          deleteMentorAccount(user.id);
+          await deleteMentorAccount(user.id);
           await logout();
           router.push('/');
         }}

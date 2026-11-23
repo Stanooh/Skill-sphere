@@ -594,7 +594,7 @@ export function MentorStudentRecommendations() {
               </p>
             </div>
           ) : (
-            myRecs.map((rec) => {
+            myRecs.map((rec: StudentRecommendation) => {
               const studentObj = students.find((st) => st.user.id === rec.studentId);
               const studentName = studentObj?.user.name ?? 'Student';
               return (
@@ -662,7 +662,7 @@ export function MentorStudentRecommendations() {
                   <p className="text-sm text-ink-400 italic">&quot;{rec.recommendation}&quot;</p>
 
                   <div className="flex flex-wrap gap-1.5 pt-2">
-                    {rec.careerAreas.map((area) => (
+                    {rec.careerAreas.map((area: string) => (
                       <span key={area} className="badge bg-brand-900 text-brand-200 text-xs">
                         {area}
                       </span>

@@ -9,8 +9,8 @@ import type {
   VerificationStatus,
 } from '@/types';
 import { getAllMentors, getSkills, getMentor } from '@/services/dataService';
+import { createClient } from '@/lib/supabase/client';
 
-const STORAGE_KEY = 'skillsphere_verification';
 let memory: MentorVerificationApplication[] | null = null;
 
 function now(): string {
@@ -45,22 +45,35 @@ function defaultApplication(mentorId: string): MentorVerificationApplication {
   };
 }
 
-function save(): void {
-  if (!memory) return;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(memory)); } catch { /* prototype continues in memory */ }
+function syncToSupabase(application: MentorVerificationApplication): void {
+  if (typeof window === 'undefined') return;
+  const supabase = createClient();
+  void supabase
+    .from('mentor_applications')
+    .upsert({
+      user_id: application.mentorId,
+      professional_headline: application.professionalHeadline,
+      biography: application.biography,
+      location: application.location,
+      linkedin_url: application.linkedIn || null,
+      github_url: application.github || null,
+      portfolio_url: application.portfolio || null,
+      identity_verified: application.identity.status === 'verified',
+      competency_verified: application.skills.some((s) => s.status === 'verified'),
+      status: application.overallStatus === 'verified'
+        ? 'approved'
+        : application.overallStatus === 'pending'
+        ? 'pending_admin_approval'
+        : application.overallStatus === 'rejected'
+        ? 'rejected'
+        : 'draft',
+      updated_at: now(),
+    }, { onConflict: 'user_id' });
 }
 
 function load(): MentorVerificationApplication[] {
   if (memory) return memory;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) memory = (parsed as MentorVerificationApplication[]).map((application) => ({ ...application, selectedSkillIds: application.selectedSkillIds ?? application.skills.map((skill) => skill.skillId) }));
-    }
-  } catch { /* use defaults */ }
-  memory ??= getAllMentors().map((mentor) => defaultApplication(mentor.user.id));
-  save();
+  memory = getAllMentors().map((mentor) => defaultApplication(mentor.user.id));
   return memory;
 }
 
@@ -79,7 +92,7 @@ function ensureSkill(application: MentorVerificationApplication, skillId: string
 
 function updateApplication(application: MentorVerificationApplication): MentorVerificationApplication {
   application.updatedAt = now();
-  save();
+  syncToSupabase(application);
   return application;
 }
 
@@ -93,7 +106,6 @@ export function getVerificationApplication(mentorId: string): MentorVerification
   if (!application) {
     application = defaultApplication(mentorId);
     applications.push(application);
-    save();
   }
   return application;
 }
@@ -185,7 +197,6 @@ export function setApplicationStatus(mentorId: string, status: VerificationStatu
 
 export function resetVerificationData(): void {
   memory = getAllMentors().map((mentor) => defaultApplication(mentor.user.id));
-  save();
 }
 
 export const evidenceTypeLabels: Record<EvidenceType, string> = {

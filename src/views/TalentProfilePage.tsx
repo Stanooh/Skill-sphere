@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -20,11 +20,11 @@ import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { getTalentProfileById } from '@/services/talentService';
+import { getTalentProfileById, getTalentProfileByIdAsync } from '@/services/talentService';
 import { createEmployerContactRequest } from '@/services/contactRequestService';
 import { getAcceptedRecommendationsForStudent } from '@/services/recommendationService';
 import { getUserById, getMentorProfile, getRoadmap } from '@/services/dataService';
-import type { SkillLevel } from '@/types';
+import type { SkillLevel, TalentProfile, StudentRecommendation } from '@/types';
 
 const levelColors: Record<SkillLevel, 'gray' | 'green' | 'amber' | 'brand'> = {
   beginner: 'gray',
@@ -34,12 +34,27 @@ const levelColors: Record<SkillLevel, 'gray' | 'green' | 'amber' | 'brand'> = {
 };
 
 export function TalentProfilePage({ studentId }: { studentId: string }) {
-  const talent = useMemo(() => getTalentProfileById(studentId), [studentId]);
+  const [talent, setTalent] = useState<TalentProfile | null>(() => getTalentProfileById(studentId) || null);
+  const [recommendations, setRecommendations] = useState<StudentRecommendation[]>([]);
+  const [loading, setLoading] = useState(!talent);
   const roadmap = useMemo(() => getRoadmap(studentId), [studentId]);
-  const recommendations = useMemo(
-    () => getAcceptedRecommendationsForStudent(studentId),
-    [studentId]
-  );
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      getTalentProfileByIdAsync(studentId),
+      getAcceptedRecommendationsForStudent(studentId),
+    ]).then(([profileData, recsData]) => {
+      if (active) {
+        if (profileData) setTalent(profileData);
+        setRecommendations(recsData);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [studentId]);
 
   const [contactOpen, setContactOpen] = useState(false);
   const [contactSent, setContactSent] = useState(false);
@@ -47,6 +62,19 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
   const [employerEmail, setEmployerEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [message, setMessage] = useState('');
+
+  if (loading) {
+    return (
+      <PublicBrowseLayout
+        title="Loading Profile..."
+        description="Fetching candidate information."
+      >
+        <div className="card p-12 text-center max-w-lg mx-auto text-ink-300">
+          Loading candidate profile...
+        </div>
+      </PublicBrowseLayout>
+    );
+  }
 
   if (!talent) {
     return (
@@ -69,13 +97,13 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
     );
   }
 
-  const handleContact = (e: React.FormEvent) => {
+  const handleContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employerName.trim() || !employerEmail.trim() || !companyName.trim() || !message.trim()) {
       return;
     }
 
-    createEmployerContactRequest({
+    await createEmployerContactRequest({
       learnerId: studentId,
       employerName: employerName.trim(),
       employerEmail: employerEmail.trim(),

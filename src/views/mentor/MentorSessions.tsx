@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState, Tabs } from '@/components/ui';
 import { CalendarDays, Clock } from 'lucide-react';
-import { getSessionsForMentor, getUserById } from '@/services/dataService';
-import type { SessionStatus } from '@/types';
+import { getSessionsForMentor } from '@/services/sessionService';
+import { getUserById } from '@/services/dataService';
+import type { Session, SessionStatus } from '@/types';
 
 const statusConfig: Record<SessionStatus, { label: string; variant: 'amber' | 'green' | 'red' | 'gray' }> = {
   pending: { label: 'Pending', variant: 'amber' },
@@ -21,10 +22,25 @@ const statusConfig: Record<SessionStatus, { label: string; variant: 'amber' | 'g
 export function MentorSessionsPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState('upcoming');
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void getSessionsForMentor(user.id).then((data) => {
+      if (active) {
+        setSessions(data);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (!user) return null;
 
-  const sessions = getSessionsForMentor(user.id);
   const upcoming = sessions.filter((s) => s.status === 'accepted' || s.status === 'pending');
   const completed = sessions.filter((s) => s.status === 'completed');
   const cancelled = sessions.filter((s) => s.status === 'declined' || s.status === 'cancelled');
@@ -46,7 +62,9 @@ export function MentorSessionsPage() {
         />
       </div>
 
-      {displayed.length === 0 ? (
+      {loading ? (
+        <div className="card p-12 text-center text-sm text-ink-300">Loading sessions...</div>
+      ) : displayed.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={<CalendarDays className="w-6 h-6" />}
@@ -78,8 +96,17 @@ export function MentorSessionsPage() {
                       <p className="text-sm text-ink-400 mt-0.5">{session.description}</p>
                       <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-ink-400">
                         {learner && <span>with {learner.name}</span>}
-                        <span className="flex items-center gap-1"><CalendarDays className="w-4 h-4" /> {new Date(session.scheduledDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {session.durationMinutes} min</span>
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-4 h-4" />{' '}
+                          {new Date(session.scheduledDate).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" /> {session.durationMinutes} min
+                        </span>
                       </div>
                     </div>
                   </div>

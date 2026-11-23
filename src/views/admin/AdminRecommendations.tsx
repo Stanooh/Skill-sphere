@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useState, useCallback } from 'react';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
@@ -25,38 +24,17 @@ import {
   getAllEmployerContactRequests,
 } from '@/services/contactRequestService';
 import {
+  recordAdminAction,
+  getAdminActionLogs,
+} from '@/services/adminLogService';
+import {
   getUserById,
-  getDb,
   updateLearnerProfile,
 } from '@/services/dataService';
-import type { StudentRecommendation, AdminActionLog } from '@/types';
+import { createClient } from '@/lib/supabase/client';
+import type { StudentRecommendation, AdminActionLog, EmployerContactRequest, LearnerProfile } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-
-const ADMIN_ACTIONS_KEY = 'skillsphere_admin_actions';
-
-function getAdminLogs(): AdminActionLog[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(ADMIN_ACTIONS_KEY);
-    return raw ? (JSON.parse(raw) as AdminActionLog[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function recordAdminLog(log: Omit<AdminActionLog, 'id' | 'createdAt'>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const logs = getAdminLogs();
-    logs.unshift({
-      ...log,
-      id: `act-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem(ADMIN_ACTIONS_KEY, JSON.stringify(logs));
-  } catch {}
-}
 
 export function AdminRecommendationsPage() {
   const { user } = useAuth();
@@ -64,63 +42,112 @@ export function AdminRecommendationsPage() {
 
   const [activeTab, setActiveTab] = useState<'recs' | 'profiles' | 'contacts' | 'logs'>('recs');
   const [search, setSearch] = useState('');
-  const [, setRefreshKey] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const [recommendations, setRecommendations] = useState<StudentRecommendation[]>([]);
+  const [contacts, setContacts] = useState<EmployerContactRequest[]>([]);
+  const [adminLogs, setAdminLogs] = useState<AdminActionLog[]>([]);
+  const [visibleLearners, setVisibleLearners] = useState<LearnerProfile[]>([]);
 
   // Moderation modal state
   const [selectedRecToDelete, setSelectedRecToDelete] = useState<StudentRecommendation | null>(null);
   const [deletionNote, setDeletionNote] = useState('');
 
-  const recommendations = getAllRecommendations();
-  const contacts = getAllEmployerContactRequests();
-  const adminLogs = getAdminLogs();
+  const loadData = useCallback(async () => {
+    const supabase = createClient();
+    const [recs, reqs, logs, lpRes] = await Promise.all([
+      getAllRecommendations(),
+      getAllEmployerContactRequests(),
+      getAdminActionLogs(),
+      supabase.from('learner_profiles').select('*').eq('employer_visibility', true),
+    ]);
 
-  const db = getDb();
-  const visibleLearners = db.learnerProfiles.filter((p) => p.employerVisibility === true);
+    setRecommendations(recs);
+    setContacts(reqs);
+    setAdminLogs(logs);
+
+    if (lpRes.data) {
+      setVisibleLearners(
+        lpRes.data.map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          bio: row.bio || '',
+          location: row.location || '',
+          education: row.education || '',
+          learningGoal: row.learning_goal || '',
+          targetTimeframe: row.target_timeframe || '',
+          availableHoursPerWeek: row.available_hours_per_week || 0,
+          skillIds: row.skill_ids || [],
+          skillLevels: row.skill_levels || {},
+          profileComplete: row.profile_complete,
+          employerVisibility: row.employer_visibility,
+        }))
+      );
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      await loadData();
+    };
+    if (active) void run();
+    return () => {
+      active = false;
+    };
+  }, [loadData]);
 
   const acceptedCount = recommendations.filter((r) => r.studentApprovalStatus === 'accepted').length;
   const pendingCount = recommendations.filter((r) => r.studentApprovalStatus === 'pending').length;
 
-  const handleConfirmDeleteRec = () => {
+  const handleConfirmDeleteRec = async () => {
     if (!selectedRecToDelete) return;
-    const ok = adminDeleteRecommendation(selectedRecToDelete.id);
+    const ok = await adminDeleteRecommendation(selectedRecToDelete.id);
     if (ok) {
-      recordAdminLog({
-        adminId: user?.id ?? 'admin',
-        action: 'Removed Inappropriate Mentor Recommendation',
-        targetId: selectedRecToDelete.id,
-        targetType: 'recommendation',
-        note: deletionNote || 'Removed for policy violation / inappropriate content',
-      });
+      if (user) {
+        await recordAdminAction({
+          adminId: user.id,
+          action: 'Removed Inappropriate Mentor Recommendation',
+          targetId: selectedRecToDelete.id,
+          targetType: 'recommendation',
+          note: deletionNote || 'Removed for policy violation / inappropriate content',
+        });
+      }
       show('Recommendation removed and moderation log recorded.', 'success');
       setSelectedRecToDelete(null);
       setDeletionNote('');
-      setRefreshKey((k) => k + 1);
+      await loadData();
     }
   };
 
-  const handleRevokeVisibility = (studentId: string, studentName: string) => {
+  const handleRevokeVisibility = async (studentId: string, studentName: string) => {
+    const supabase = createClient();
+    await supabase.from('learner_profiles').update({ employer_visibility: false }).eq('user_id', studentId);
     updateLearnerProfile(studentId, { employerVisibility: false });
-    recordAdminLog({
-      adminId: user?.id ?? 'admin',
-      action: 'Revoked Public Employer Visibility',
-      targetId: studentId,
-      targetType: 'profile',
-      note: `Visibility revoked for ${studentName} upon review/complaint.`,
-    });
+    if (user) {
+      await recordAdminAction({
+        adminId: user.id,
+        action: 'Revoked Public Employer Visibility',
+        targetId: studentId,
+        targetType: 'profile',
+        note: `Visibility revoked for ${studentName} upon review/complaint.`,
+      });
+    }
     show(`Public employer visibility revoked for ${studentName}.`, 'info');
-    setRefreshKey((k) => k + 1);
+    await loadData();
   };
 
   const filteredRecs = recommendations.filter((r) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-      const mentor = getUserById(r.mentorId);
-      const student = getUserById(r.studentId);
-      return (
-        mentor?.name.toLowerCase().includes(q) ||
-        student?.name.toLowerCase().includes(q) ||
-        r.recommendation.toLowerCase().includes(q)
-      );
+    const mentor = getUserById(r.mentorId);
+    const student = getUserById(r.studentId);
+    return (
+      mentor?.name.toLowerCase().includes(q) ||
+      student?.name.toLowerCase().includes(q) ||
+      r.recommendation.toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -199,267 +226,225 @@ export function AdminRecommendationsPage() {
         </button>
       </div>
 
-      {/* Tab: Recommendations */}
-      {activeTab === 'recs' && (
-        <div className="space-y-4">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-300" />
-            <input
-              className="input pl-10"
-              placeholder="Search by mentor, student, or keyword..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          {filteredRecs.length === 0 ? (
-            <div className="card p-10 text-center text-ink-400 text-sm">
-              No recommendations found matching your criteria.
-            </div>
-          ) : (
+      {loading ? (
+        <div className="card p-12 text-center text-sm text-ink-300">Loading data...</div>
+      ) : (
+        <>
+          {/* TAB 1: Recommendations Moderation */}
+          {activeTab === 'recs' && (
             <div className="space-y-4">
-              {filteredRecs.map((rec) => {
-                const mentor = getUserById(rec.mentorId);
-                const student = getUserById(rec.studentId);
-                return (
-                  <div
-                    key={rec.id}
-                    className="card p-5 space-y-3 border border-ink-200 hover:border-ink-100"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-ink-100">
-                      <div>
-                        <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                          <span>Mentor: {mentor?.name ?? 'Unknown'}</span>
-                          <span className="text-ink-400">→</span>
-                          <span>Student: {student?.name ?? 'Unknown'}</span>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-300" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by mentor, student, or keyword..."
+                    className="input pl-9 text-sm"
+                  />
+                </div>
+              </div>
+
+              {filteredRecs.length === 0 ? (
+                <div className="card p-12 text-center text-ink-300">No recommendations found.</div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredRecs.map((rec) => {
+                    const mentor = getUserById(rec.mentorId);
+                    const student = getUserById(rec.studentId);
+                    return (
+                      <div key={rec.id} className="card p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2 text-xs text-ink-300">
+                              <span className="font-semibold text-ink-600">
+                                Mentor: {mentor?.name || 'Unknown'}
+                              </span>
+                              <span>•</span>
+                              <span className="font-semibold text-ink-600">
+                                Student: {student?.name || 'Unknown'}
+                              </span>
+                              <span>•</span>
+                              <span>{new Date(rec.createdAt).toLocaleDateString()}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  rec.studentApprovalStatus === 'accepted'
+                                    ? 'bg-emerald-500/10 text-emerald-400'
+                                    : rec.studentApprovalStatus === 'pending'
+                                    ? 'bg-amber-500/10 text-amber-400'
+                                    : 'bg-red-500/10 text-red-400'
+                                }`}
+                              >
+                                Student {rec.studentApprovalStatus}
+                              </span>
+                            </div>
+                            <p className="text-sm text-ink-500 italic bg-ink-50 p-3 rounded-lg border border-ink-100">
+                              &ldquo;{rec.recommendation}&rdquo;
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {rec.technicalSkills.map((sk) => (
+                                <span
+                                  key={sk}
+                                  className="px-2 py-0.5 bg-brand/10 text-brand text-xs rounded"
+                                >
+                                  {sk}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="text-red-400 hover:bg-red-500/10"
+                              onClick={() => setSelectedRecToDelete(rec)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1 text-red-400" />
+                              Remove
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-xs text-ink-400 mt-0.5">
-                          Submitted on {new Date(rec.createdAt).toLocaleDateString()} • ID: {rec.id}
-                        </p>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
+          {/* TAB 2: Public Talent Profiles */}
+          {activeTab === 'profiles' && (
+            <div className="space-y-3">
+              {visibleLearners.length === 0 ? (
+                <div className="card p-12 text-center text-ink-300">No public profiles listed.</div>
+              ) : (
+                visibleLearners.map((learner) => {
+                  const student = getUserById(learner.userId);
+                  return (
+                    <div
+                      key={learner.id}
+                      className="card p-5 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-brand/10 text-brand font-semibold flex items-center justify-center">
+                          {student?.name?.charAt(0) || 'L'}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-ink text-sm">
+                            {student?.name || 'Candidate'}
+                          </h4>
+                          <p className="text-xs text-ink-300">
+                            {learner.learningGoal || 'No goal specified'} • {learner.location}
+                          </p>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
-                        {rec.studentApprovalStatus === 'accepted' && (
-                          <span className="badge bg-emerald-950 text-emerald-300 border border-emerald-800 text-xs">
-                            Student Approved (Public)
-                          </span>
-                        )}
-                        {rec.studentApprovalStatus === 'declined' && (
-                          <span className="badge bg-ink-200 text-ink-400 text-xs">
-                            Declined by Student
-                          </span>
-                        )}
-                        {rec.studentApprovalStatus === 'pending' && (
-                          <span className="badge bg-amber-950 text-amber-300 border border-amber-800 text-xs">
-                            Pending Review
-                          </span>
-                        )}
-
                         <Button
-                          size="sm"
                           variant="secondary"
-                          className="!text-red-400 hover:!text-red-300 hover:!bg-red-950"
-                          onClick={() => setSelectedRecToDelete(rec)}
+                          size="sm"
+                          onClick={() => handleRevokeVisibility(learner.userId, student?.name || 'Learner')}
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> Remove
+                          <EyeOff className="w-4 h-4 mr-1 text-amber-400" />
+                          Revoke Visibility
                         </Button>
                       </div>
                     </div>
-
-                    <p className="text-sm text-ink-400 italic">&quot;{rec.recommendation}&quot;</p>
-
-                    <div className="flex flex-wrap gap-1 text-xs">
-                      {rec.strengths.map((st) => (
-                        <span key={st} className="badge bg-ink-100 text-ink-400">
-                          {st}
-                        </span>
-                      ))}
-                      {rec.careerAreas.map((area) => (
-                        <span key={area} className="badge bg-brand-900 text-brand-200">
-                          {area}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Tab: Public Talent Profiles */}
-      {activeTab === 'profiles' && (
-        <div className="space-y-4">
-          <p className="text-sm text-ink-400">
-            Learners who have explicitly opted into employer discovery. Administrators can revoke visibility
-            if a profile violates community guidelines or upon receiving complaints.
-          </p>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {visibleLearners.map((lp) => {
-              const student = getUserById(lp.userId);
-              if (!student) return null;
-              return (
-                <div key={lp.id} className="card p-5 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    {student.avatar && (
-                      <Image
-                        src={student.avatar}
-                        alt={student.name}
-                        width={48}
-                        height={48}
-                        unoptimized
-                        className="w-12 h-12 rounded-full ring-2 ring-brand/30"
-                      />
-                    )}
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-ink text-sm truncate">{student.name}</h4>
-                      <p className="text-xs text-brand truncate">{lp.learningGoal}</p>
-                      <p className="text-xs text-ink-400 mt-1 line-clamp-2">{lp.bio}</p>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="!text-red-400 shrink-0"
-                    onClick={() => handleRevokeVisibility(student.id, student.name)}
-                  >
-                    <EyeOff className="w-3.5 h-3.5" /> Revoke Visibility
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Tab: Employer Inquiries */}
-      {activeTab === 'contacts' && (
-        <div className="space-y-4">
-          <p className="text-sm text-ink-400">
-            Audit of contact inquiries sent by employers through the public talent discovery directory.
-          </p>
-
-          {contacts.length === 0 ? (
-            <div className="card p-10 text-center text-ink-400 text-sm">
-              No employer inquiries recorded yet.
-            </div>
-          ) : (
-            <div className="card divide-y divide-ink-100 overflow-hidden">
-              {contacts.map((req) => {
-                const student = getUserById(req.learnerId);
-                return (
-                  <div key={req.id} className="p-4 space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-ink flex items-center gap-2">
-                          <Building className="w-4 h-4 text-brand" /> {req.companyName}
-                          <span className="text-xs font-normal text-ink-400">
-                            ({req.employerName} • {req.employerEmail})
-                          </span>
-                        </p>
-                        <p className="text-xs text-ink-400 mt-0.5">
-                          Target Student: <strong className="text-ink">{student?.name ?? 'Learner'}</strong> • {new Date(req.createdAt).toLocaleString()}
-                        </p>
+          {/* TAB 3: Employer Inquiries */}
+          {activeTab === 'contacts' && (
+            <div className="space-y-3">
+              {contacts.length === 0 ? (
+                <div className="card p-12 text-center text-ink-300">No employer inquiries recorded yet.</div>
+              ) : (
+                contacts.map((req) => {
+                  const student = getUserById(req.learnerId);
+                  return (
+                    <div key={req.id} className="card p-5 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-ink-300">
+                        <span className="font-semibold text-ink-600">
+                          {req.employerName} ({req.companyName})
+                        </span>
+                        <span>{new Date(req.createdAt).toLocaleString()}</span>
                       </div>
-                      <span className="badge bg-ink-100 text-ink-400 text-xs uppercase">{req.status}</span>
+                      <p className="text-xs text-ink-400">
+                        Candidate recipient: <span className="text-ink-600 font-medium">{student?.name || req.learnerId}</span> • Employer Contact: {req.employerEmail}
+                      </p>
+                      <p className="text-sm text-ink-500 bg-ink-50 p-3 rounded-lg border border-ink-100">
+                        {req.message}
+                      </p>
                     </div>
-                    <p className="text-xs text-ink-400 bg-ink-100 p-2.5 rounded-lg">
-                      &quot;{req.message}&quot;
-                    </p>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Tab: Audit Logs */}
-      {activeTab === 'logs' && (
-        <div className="space-y-4">
-          <p className="text-sm text-ink-400">
-            Log of administrative actions taken regarding recommendations, student visibility, and moderation.
-          </p>
-
-          {adminLogs.length === 0 ? (
-            <div className="card p-10 text-center text-ink-400 text-sm">
-              No administrative actions logged yet.
-            </div>
-          ) : (
-            <div className="card divide-y divide-ink-100 overflow-hidden">
-              {adminLogs.map((log) => (
-                <div key={log.id} className="p-4 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-900 flex items-center justify-center text-brand shrink-0 mt-0.5">
-                    <History className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-ink">{log.action}</p>
-                      <span className="text-xs text-ink-400">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </span>
+          {/* TAB 4: Audit Logs */}
+          {activeTab === 'logs' && (
+            <div className="space-y-3">
+              {adminLogs.length === 0 ? (
+                <div className="card p-12 text-center text-ink-300">No admin moderation events recorded.</div>
+              ) : (
+                adminLogs.map((log) => (
+                  <div key={log.id} className="card p-4 flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-3">
+                      <History className="w-4 h-4 text-brand shrink-0" />
+                      <div>
+                        <span className="font-semibold text-ink">{log.action}</span>
+                        {log.note && <p className="text-xs text-ink-400 mt-0.5">{log.note}</p>}
+                      </div>
                     </div>
-                    <p className="text-xs text-ink-400 mt-0.5">{log.note}</p>
-                    <p className="text-[11px] text-ink-400 mt-1">
-                      Target: {log.targetType} ({log.targetId}) • By Admin: {log.adminId}
-                    </p>
+                    <span className="text-xs text-ink-300 whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </span>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Remove Recommendation Modal */}
-      <Modal
-        open={selectedRecToDelete !== null}
-        onClose={() => setSelectedRecToDelete(null)}
-        title="Remove Inappropriate Recommendation"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div className="p-3 bg-red-950/40 rounded-lg border border-red-800 text-xs text-red-300 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
-            <div>
-              <p className="font-semibold text-red-300">Administrative Moderation Action</p>
-              <p className="mt-0.5">
-                Removing this recommendation will immediately delete it from all public candidate
-                profiles and mentor views. This action will be logged in the audit trail.
+      {/* Delete Confirmation Modal */}
+      {selectedRecToDelete && (
+        <Modal
+          open={true}
+          onClose={() => setSelectedRecToDelete(null)}
+          title="Remove Recommendation"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-red-500/10 text-red-400 rounded-lg text-sm">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              <p>
+                Removing this endorsement is permanent and cannot be undone. An audit record will be logged.
               </p>
             </div>
+            <div>
+              <label className="label mb-1">Reason for removal (Audit Log Note)</label>
+              <textarea
+                value={deletionNote}
+                onChange={(e) => setDeletionNote(e.target.value)}
+                placeholder="e.g., Inappropriate language, false claims, policy violation..."
+                className="input min-h-[80px] text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setSelectedRecToDelete(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={handleConfirmDeleteRec}>
+                Confirm Removal
+              </Button>
+            </div>
           </div>
-
-          <div>
-            <label className="label">Reason / Moderation Note</label>
-            <textarea
-              className="input min-h-24"
-              placeholder="e.g. Inappropriate language, policy violation, fabricated claim..."
-              value={deletionNote}
-              onChange={(e) => setDeletionNote(e.target.value)}
-            />
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setSelectedRecToDelete(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmDeleteRec}
-              className="flex-1 !bg-red-600 hover:!bg-red-700 !text-white !border-0"
-            >
-              Confirm Removal
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </DashboardLayout>
   );
 }
