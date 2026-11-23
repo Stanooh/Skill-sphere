@@ -75,7 +75,6 @@ const adminNav: NavItem[] = [
   { to: '/admin/workshops', label: 'Workshop Management', icon: <BookOpen className="w-[18px] h-[18px]" /> },
   { to: '/admin/learners', label: 'Find Talents', icon: <GraduationCap className="w-[18px] h-[18px]" /> },
   { to: '/admin/reports', label: 'Reports', icon: <BarChart3 className="w-[18px] h-[18px]" /> },
-  { to: '/admin/notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" /> },
   { to: '/admin/settings', label: 'Settings', icon: <Shield className="w-[18px] h-[18px]" /> },
 ];
 
