@@ -35,6 +35,7 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
   const [step, setStep] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
+  const [genError, setGenError] = useState<string | null>(null);
   const [generatedRoadmap, setGeneratedRoadmap] = useState<LearningRoadmap | null>(null);
   const [existingRoadmap, setExistingRoadmap] = useState<LearningRoadmap | null>(null);
 
@@ -86,8 +87,9 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
   };
 
   const handleGenerate = async () => {
+    if (generating) return;
     setGenerating(true);
-    setGenStep(0);
+    setGenError(null);
     setGenStep(1);
     try {
       const startingLevel = selectedSkills.reduce<SkillLevel>((lowest, skillId) => {
@@ -109,7 +111,9 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
       setGeneratedRoadmap(roadmap);
       show('Your personalized roadmap is ready!', 'success');
     } catch (error) {
-      show(error instanceof Error ? error.message : 'Could not generate your roadmap.', 'error');
+      const msg = error instanceof Error ? error.message : 'Could not generate your roadmap.';
+      setGenError(msg);
+      show(msg, 'error');
     } finally {
       setGenerating(false);
     }
@@ -287,6 +291,15 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
   return (
     <DashboardLayout>
       <PageHeader title="AI Learning Roadmap" description="Generate a personalized learning plan based on your career path and current skills." />
+
+      {genError && (
+        <div className="card p-4 mb-6 border-red-200 bg-red-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-red-700">{genError}</p>
+          <Button size="sm" variant="secondary" onClick={() => void handleGenerate()} disabled={generating}>
+            Retry Generation
+          </Button>
+        </div>
+      )}
 
       {existingRoadmap && !generatedRoadmap && (
         <div className="card p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

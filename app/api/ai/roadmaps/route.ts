@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { createGeminiClient, generateContentWithFallback, geminiErrorMessage } from '@/lib/gemini';
+import {
+  createGeminiClient,
+  generateContentWithFallback,
+  geminiErrorMessage,
+  parseGeminiJson,
+} from '@/lib/gemini';
+
+export const maxDuration = 60;
 
 const resourceSchema = z.object({
   title: z.string(),
@@ -98,12 +105,16 @@ export async function POST(request: Request) {
 
   try {
     const ai = createGeminiClient();
-    const result = await generateContentWithFallback(ai, {
+    const { response: result, modelUsed } = await generateContentWithFallback(ai, {
       contents: prompt,
       config: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 },
     });
     const text = result.text ?? '';
-    const roadmap = roadmapSchema.parse(JSON.parse(text));
+    if (!text.trim()) {
+      console.error(`[roadmaps] empty response from model=${modelUsed}`);
+      return NextResponse.json({ error: 'The AI returned an empty roadmap. Please try again.' }, { status: 502 });
+    }
+    const roadmap = roadmapSchema.parse(parseGeminiJson(text));
 
     const { data: saved, error } = await supabase
       .from('learning_roadmaps')
@@ -119,6 +130,7 @@ export async function POST(request: Request) {
       .select('*')
       .single();
     if (error || !saved) {
+      console.error('[roadmaps] supabase insert failed:', error?.message);
       return NextResponse.json({ error: 'The roadmap was generated but could not be saved.' }, { status: 500 });
     }
 
@@ -130,6 +142,7 @@ export async function POST(request: Request) {
       );
     return NextResponse.json({ roadmap: saved });
   } catch (error) {
+    console.error('[roadmaps] generation failed:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: geminiErrorMessage(error) }, { status: 502 });
   }
 }

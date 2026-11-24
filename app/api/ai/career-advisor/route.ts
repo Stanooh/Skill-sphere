@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { createGeminiClient, generateContentWithFallback, geminiErrorMessage } from '@/lib/gemini';
+import {
+  createGeminiClient,
+  generateContentWithFallback,
+  geminiErrorMessage,
+  parseGeminiJson,
+} from '@/lib/gemini';
+
+export const maxDuration = 60;
 
 const requestSchema = z.object({
   conversationId: z.string().uuid().optional(),
@@ -105,12 +112,16 @@ export async function POST(request: Request) {
 
   try {
     const ai = createGeminiClient();
-    const result = await generateContentWithFallback(ai, {
+    const { response: result, modelUsed } = await generateContentWithFallback(ai, {
       contents: prompt,
       config: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
     });
     const text = result.text ?? '';
-    const response = responseSchema.parse(JSON.parse(text));
+    if (!text.trim()) {
+      console.error(`[career-advisor] empty response from model=${modelUsed}`);
+      return NextResponse.json({ error: 'The AI returned an empty response. Please try again.' }, { status: 502 });
+    }
+    const response = responseSchema.parse(parseGeminiJson(text));
 
     await supabase.from('career_messages').insert([
       { conversation_id: conversationId, user_id: user.id, role: 'user', content: parsed.data.message },
@@ -129,6 +140,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ conversationId, ...response });
   } catch (error) {
+    console.error('[career-advisor] generation failed:', error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: geminiErrorMessage(error) }, { status: 502 });
   }
 }

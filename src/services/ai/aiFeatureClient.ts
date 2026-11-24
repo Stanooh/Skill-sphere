@@ -1,5 +1,7 @@
 import type { CareerAdvisorMessage, LearningRoadmap } from '@/types';
 
+const CLIENT_TIMEOUT_MS = 50_000;
+
 type DbRoadmapRow = {
   id: string;
   user_id?: string;
@@ -23,6 +25,30 @@ type DbRoadmapRow = {
     }>;
   };
 };
+
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = CLIENT_TIMEOUT_MS
+): Promise<{ ok: boolean; status: number; data: Record<string, unknown> | null }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+    const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    return { ok: response.ok, status: response.status, data };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('The request timed out. Please try again.');
+    }
+    throw new Error('Network error while contacting the AI service. Please try again.');
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function mapDbRoadmap(saved: DbRoadmapRow, hoursPerWeek = 10): LearningRoadmap {
   const data = saved.roadmap_data;
@@ -56,31 +82,38 @@ export async function askCareerAdvisor(
   message: string,
   conversationId?: string
 ): Promise<{ conversationId: string; message: CareerAdvisorMessage }> {
-  const response = await fetch('/api/ai/career-advisor', {
+  const { ok, data } = await fetchJsonWithTimeout('/api/ai/career-advisor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, conversationId }),
   });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Could not get a career response.');
+
+  if (!ok || !data || typeof data.content !== 'string' || typeof data.conversationId !== 'string') {
+    const errMsg = typeof data?.error === 'string' ? data.error : 'Could not get a career response.';
+    throw new Error(errMsg);
+  }
+
   return {
-    conversationId: result.conversationId,
+    conversationId: data.conversationId,
     message: {
       id: `assistant-${Date.now()}`,
       role: 'assistant',
-      content: result.content,
+      content: data.content,
       createdAt: new Date().toISOString(),
-      includeRoadmapLink: result.includeRoadmapLink,
+      includeRoadmapLink: Boolean(data.includeRoadmapLink),
     },
   };
 }
 
 export async function getAiRoadmaps(): Promise<LearningRoadmap[]> {
-  const response = await fetch('/api/ai/roadmaps');
-  if (!response.ok) return [];
-  const result = await response.json();
-  const rows = (result.roadmaps ?? []) as DbRoadmapRow[];
-  return rows.map((row) => mapDbRoadmap(row));
+  try {
+    const { ok, data } = await fetchJsonWithTimeout('/api/ai/roadmaps', { method: 'GET' }, 15_000);
+    if (!ok || !data || !Array.isArray(data.roadmaps)) return [];
+    const rows = data.roadmaps as DbRoadmapRow[];
+    return rows.map((row) => mapDbRoadmap(row));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateAiRoadmap(input: {
@@ -92,13 +125,16 @@ export async function generateAiRoadmap(input: {
   existingSkills: string[];
   interests: string[];
 }): Promise<LearningRoadmap> {
-  const response = await fetch('/api/ai/roadmaps', {
+  const { ok, data } = await fetchJsonWithTimeout('/api/ai/roadmaps', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Could not generate a roadmap.');
 
-  return mapDbRoadmap(result.roadmap as DbRoadmapRow, input.availableHoursPerWeek);
+  if (!ok || !data || !data.roadmap) {
+    const errMsg = typeof data?.error === 'string' ? data.error : 'Could not generate a roadmap.';
+    throw new Error(errMsg);
+  }
+
+  return mapDbRoadmap(data.roadmap as DbRoadmapRow, input.availableHoursPerWeek);
 }

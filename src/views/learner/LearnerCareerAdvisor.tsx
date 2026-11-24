@@ -35,6 +35,8 @@ export function LearnerCareerAdvisorPage() {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string>();
   const [messages, setMessages] = useState<CareerAdvisorMessage[]>(() =>
     user ? [getWelcomeMessage(user.name)] : []
@@ -130,25 +132,38 @@ export function LearnerCareerAdvisorPage() {
 
   const profileComplete = supabaseProfile?.profileComplete ?? false;
 
-  const handleSend = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const sendQuestion = async (question: string, appendUserBubble: boolean) => {
+    const trimmed = question.trim();
+    if (!trimmed || loading) return;
     setLoading(true);
-    const question = input.trim();
-    setInput('');
-    setMessages((current) => [
-      ...current,
-      { id: `user-${Date.now()}`, role: 'user', content: question, createdAt: new Date().toISOString() },
-    ]);
+    setErrorMsg(null);
+    setLastFailedQuestion(null);
+    if (appendUserBubble) {
+      setMessages((current) => [
+        ...current,
+        { id: `user-${Date.now()}`, role: 'user', content: trimmed, createdAt: new Date().toISOString() },
+      ]);
+    }
     try {
-      const result = await askCareerAdvisor(question, conversationId);
+      const result = await askCareerAdvisor(trimmed, conversationId);
       setConversationId(result.conversationId);
       setMessages((current) => [...current, result.message]);
     } catch (error) {
-      show(error instanceof Error ? error.message : 'Could not get a career response.', 'error');
+      const msg = error instanceof Error ? error.message : 'Could not get a career response.';
+      setErrorMsg(msg);
+      setLastFailedQuestion(trimmed);
+      show(msg, 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSend = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed || loading) return;
+    setInput('');
+    await sendQuestion(trimmed, true);
   };
 
   const handleSuggested = (q: string) => {
@@ -198,7 +213,7 @@ export function LearnerCareerAdvisorPage() {
                     {msg.role === 'assistant' ? (
                       <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center shrink-0">
                         <Sparkles className="w-4 h-4 text-white" />
-                      </div>
+              </div>
                     ) : (
                       <Avatar src={user.avatar} name={user.name} size="sm" />
                     )}
@@ -209,31 +224,130 @@ export function LearnerCareerAdvisorPage() {
                           : 'bg-ink-50 text-ink rounded-tl-sm'
                       }`}>
                         <p className="text-sm whitespace-pre-line">{msg.content}</p>
-                      </div>
+              </div>
                       {msg.includeRoadmapLink && (
                         <div className="mt-2">
                           <Button size="sm" variant="secondary" onClick={() => router.push('/learner/roadmap/create')}>
                             <Sparkles className="w-3.5 h-3.5" /> Generate My Roadmap
                           </Button>
-                        </div>
+                </div>
                       )}
-                    </div>
+                      {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
                   </div>
+                )}
+              </div>
+                    {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
                 ))}
 
                 {loading && (
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center shrink-0">
                       <Sparkles className="w-4 h-4 text-white" />
-                    </div>
+                      {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
                     <div className="bg-ink-50 rounded-2xl rounded-tl-sm px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-ink-300 animate-pulse" />
                         <span className="w-2 h-2 rounded-full bg-ink-300 animate-pulse" style={{ animationDelay: '150ms' }} />
                         <span className="w-2 h-2 rounded-full bg-ink-300 animate-pulse" style={{ animationDelay: '300ms' }} />
                         <span className="text-sm text-ink-400 ml-1.5">Thinking...</span>
-                      </div>
-                    </div>
+              </div>
+                      {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+                    {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+                )}
+                {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -250,7 +364,21 @@ export function LearnerCareerAdvisorPage() {
                       {q}
                     </button>
                   ))}
-                </div>
+                  {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
               )}
 
               {/* Input */}
@@ -267,6 +395,20 @@ export function LearnerCareerAdvisorPage() {
                     <Send className="w-4 h-4" />
                   </Button>
                 </form>
+                {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -281,15 +423,57 @@ export function LearnerCareerAdvisorPage() {
                 <div>
                   <p className="text-xs font-medium text-ink-400 uppercase tracking-wider mb-1.5">Career Goal</p>
                   <p className="text-sm font-medium text-ink">{context.learningGoal}</p>
-                </div>
+                  {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
                 <div>
                   <p className="text-xs font-medium text-ink-400 uppercase tracking-wider mb-1.5">Current Skills</p>
                   <div className="flex flex-wrap gap-1.5">
                     {skills.length > 0 ? skills.map((s) => (
                       <Badge key={s.id} variant="gray">{s.name}</Badge>
                     )) : <span className="text-sm text-ink-400">No skills selected</span>}
+                    {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
                   </div>
-                </div>
+                )}
+              </div>
+                  {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
                 <div>
                   <p className="text-xs font-medium text-ink-400 uppercase tracking-wider mb-1.5">Skill Levels</p>
                   <div className="space-y-1">
@@ -297,18 +481,88 @@ export function LearnerCareerAdvisorPage() {
                       <div key={s.id} className="flex items-center justify-between text-sm">
                         <span className="text-ink-600">{s.name}</span>
                         <Badge variant="outline">{supabaseProfile?.skillLevels[s.id] ?? 'beginner'}</Badge>
-                      </div>
+              </div>
                     ))}
+                    {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
                   </div>
-                </div>
+                )}
+              </div>
+                  {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
                 <div className="flex items-center justify-between pt-3 border-t border-ink-50">
                   <span className="text-sm text-ink-400 flex items-center gap-1.5"><Clock className="w-4 h-4" /> Hours/week</span>
                   <span className="text-sm font-medium text-ink">{context.availableHoursPerWeek}h</span>
-                </div>
+                  {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
                 {latestRoadmapGoal && (
                   <div className="pt-3 border-t border-ink-50">
                     <p className="text-xs font-medium text-ink-400 uppercase tracking-wider mb-1.5">Active Roadmap</p>
                     <span className="text-sm text-ink-600">{latestRoadmapGoal}</span>
+                    {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+                )}
+                {errorMsg && !loading && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-700">{errorMsg}</p>
+                    {lastFailedQuestion && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void sendQuestion(lastFailedQuestion, false)}
+                      >
+                        Retry
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
