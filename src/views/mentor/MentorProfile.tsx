@@ -7,8 +7,6 @@ import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
-import { Modal } from '@/components/ui/Modal';
 import { ProfilePictureUpload } from '@/components/profile/ProfilePictureUpload';
 import { uploadUserAvatar, removeUserAvatar } from '@/services/avatarService';
 import {
@@ -17,41 +15,19 @@ import {
   getMentorVerifiedCompetencies,
   type VerifiedCompetency,
 } from '@/services/mentorProfileService';
+import { getMentorRatingSummary } from '@/services/mentorReviewService';
+import { checkMentorAccess } from '@/services/mentorVerificationService';
 import { MentorPublicCard } from '@/components/mentors/MentorPublicCard';
-import type {
-  User,
-  WorkExperienceEntry,
-  EducationEntry,
-} from '@/types';
+import type { User, MentorRatingSummary } from '@/types';
 import {
   CheckCircle2,
   AlertCircle,
-  Plus,
-  Trash2,
   Eye,
-  Save,
-  Globe,
-  Linkedin,
-  Github,
-  Link as LinkIcon,
-  Briefcase,
-  GraduationCap,
-  Sparkles,
-  ChevronRight,
+  Edit3,
   ExternalLink,
 } from 'lucide-react';
 
-type ProfileTabKey = 'info' | 'experience' | 'skills' | 'mentorship' | 'availability' | 'links';
-
 const LEARNER_LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
-const FORMAT_OPTIONS = ['One-on-one', 'Group sessions', 'Workshops'];
-const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const TIME_SLOT_OPTIONS = [
-  'Morning (9am – 12pm)',
-  'Afternoon (12pm – 5pm)',
-  'Evening (5pm – 9pm)',
-  'Flexible / On-demand',
-];
 
 export function MentorProfilePage() {
   const { user, logout } = useAuth();
@@ -63,116 +39,93 @@ export function MentorProfilePage() {
 function MentorProfileContent({ user }: { user: User; logout: () => Promise<void> }) {
   const { show } = useToast();
 
-  // Loading & Action states
+  // Lifecycle & Access states
   const [loading, setLoading] = useState(true);
-  const [savingDraft, setSavingDraft] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<ProfileTabKey>('info');
+  const [hasAccess, setHasAccess] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Verified Competencies from Supabase
   const [verifiedCompetencies, setVerifiedCompetencies] = useState<VerifiedCompetency[]>([]);
 
-  // Section A: Profile Information
+  // The 6 required fields ONLY
+  // 1. Profile photo
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar ?? null);
+  // 2. Professional title
   const [professionalTitle, setProfessionalTitle] = useState('');
-  const [location, setLocation] = useState('');
+  // 3. Biography
   const [bio, setBio] = useState('');
-
-  // Section B: Professional Experience
-  const [company, setCompany] = useState('');
-  const [experienceYears, setExperienceYears] = useState(0);
-  const [workExperience, setWorkExperience] = useState<WorkExperienceEntry[]>([]);
-  const [educationHistory, setEducationHistory] = useState<EducationEntry[]>([]);
-  const [certifications, setCertifications] = useState<string[]>([]);
-  const [certInput, setCertInput] = useState('');
-
-  // Section C: Skills & Expertise (Selected from verified competencies)
+  // 4. Expertise (selected from verified competencies)
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
-
-  // Section D: Mentorship Information
-  const [mentorshipAreas, setMentorshipAreas] = useState<string[]>([]);
-  const [areaInput, setAreaInput] = useState('');
+  // 5. Experience (number of years)
+  const [experienceYears, setExperienceYears] = useState<number>(0);
+  // 6. Learner level (multi-selection)
   const [learnerLevels, setLearnerLevels] = useState<string[]>([]);
-  const [mentorshipApproach, setMentorshipApproach] = useState('');
-  const [preferredFormats, setPreferredFormats] = useState<string[]>([]);
-  const [languages, setLanguages] = useState<string[]>(['English']);
-  const [languageInput, setLanguageInput] = useState('');
 
-  // Section E: Availability
-  const [availableDays, setAvailableDays] = useState<string[]>([]);
-  const [preferredTimeSlots, setPreferredTimeSlots] = useState<string[]>([]);
-  const [timezone, setTimezone] = useState('');
-  const [acceptingLearners, setAcceptingLearners] = useState(true);
-
-  // Section F: Professional Links
-  const [linkedinUrl, setLinkedinUrl] = useState('');
-  const [githubUrl, setGithubUrl] = useState('');
-  const [portfolioUrl, setPortfolioUrl] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
-
-  // Profile publication state
+  // Publication state & ratings from Supabase
   const [isPublished, setIsPublished] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
+  const [ratingSummary, setRatingSummary] = useState<MentorRatingSummary | null>(null);
 
-  // Load existing profile & verified competencies from Supabase
+  // Load existing profile, verified competencies, and rating summary from Supabase
   useEffect(() => {
     let active = true;
 
     const load = async () => {
       try {
-        const [profile, competencies] = await Promise.all([
+        // Enforce access rule: only mentors who passed competency verification and received admin approval
+        const accessCheck = await checkMentorAccess();
+        if (!active) return;
+
+        if (!accessCheck.hasAccess) {
+          setHasAccess(false);
+          setLoading(false);
+          return;
+        }
+
+        const [profile, competencies, summary] = await Promise.all([
           getMyMentorProfile(user.id),
           getMentorVerifiedCompetencies(user.id),
+          getMentorRatingSummary(user.id),
         ]);
 
         if (!active) return;
 
         setVerifiedCompetencies(competencies);
+        if (summary) setRatingSummary(summary);
 
         if (profile) {
           setProfessionalTitle(profile.professionalTitle || '');
-          setLocation(profile.location || '');
           setBio(profile.bio || '');
-          setCompany(profile.company || '');
           setExperienceYears(profile.experienceYears || 0);
-          setWorkExperience(profile.workExperience || []);
-          setEducationHistory(profile.educationHistory || []);
-          setCertifications(profile.certifications || []);
-          setMentorshipAreas(profile.mentorshipAreas || []);
           setLearnerLevels(profile.learnerLevels || []);
-          setMentorshipApproach(profile.mentorshipApproach || '');
-          setPreferredFormats(profile.preferredFormats || []);
-          if (profile.languages && profile.languages.length > 0) {
-            setLanguages(profile.languages);
-          }
-          setAvailableDays(profile.availableDays || []);
-          setPreferredTimeSlots(profile.preferredTimeSlots || []);
-          setTimezone(profile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-          setAcceptingLearners(profile.acceptingLearners !== false && profile.availability !== 'unavailable');
-          setLinkedinUrl(profile.linkedinUrl || '');
-          setGithubUrl(profile.githubUrl || '');
-          setPortfolioUrl(profile.portfolioUrl || '');
-          setWebsiteUrl(profile.websiteUrl || '');
-          setIsPublished(profile.published || (profile.activated && profile.profileComplete));
-          setRating(profile.rating || 0);
-          setReviewCount(profile.reviewCount || 0);
           if (profile.avatarUrl) setAvatarUrl(profile.avatarUrl);
 
-          // If mentor already has selected skills, use them; otherwise pre-select all verified competencies
+          const published = Boolean(profile.published || (profile.activated && profile.profileComplete));
+          setIsPublished(published);
+
+          // If profile is already complete/published, start in view mode (unless they have no title/bio yet)
+          if (published && profile.professionalTitle && profile.bio) {
+            setIsEditing(false);
+          } else {
+            setIsEditing(true);
+          }
+
+          // Pre-select skills: either existing saved skill IDs or all verified competencies
           if (profile.skillIds && profile.skillIds.length > 0) {
             setSelectedSkillIds(profile.skillIds);
           } else if (competencies.length > 0) {
             setSelectedSkillIds(competencies.map((c) => c.skillId));
           }
-        } else if (competencies.length > 0) {
-          // Pre-select verified skills for new profile
-          setSelectedSkillIds(competencies.map((c) => c.skillId));
-          setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        } else {
+          // New mentor completing profile for the first time
+          setIsEditing(true);
+          if (competencies.length > 0) {
+            setSelectedSkillIds(competencies.map((c) => c.skillId));
+          }
         }
       } catch (err) {
-        console.error('Error loading mentor profile:', err);
+        console.error('[MentorProfile] Error loading profile:', err);
+        show('Failed to load mentor profile data. Please refresh.', 'error');
       } finally {
         if (active) setLoading(false);
       }
@@ -182,199 +135,117 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
     return () => {
       active = false;
     };
-  }, [user.id]);
+  }, [user.id, show]);
 
-  // Derived selected skills formatted for preview and card
-  const selectedSkillsObjects = useMemo(() => {
+  // Derived selected skills for preview
+  const previewSkills = useMemo(() => {
     return selectedSkillIds.map((id) => {
-      const verified = verifiedCompetencies.find((c) => c.skillId === id);
-      return { id, name: verified?.skillName || id };
+      const match = verifiedCompetencies.find((c) => c.skillId === id);
+      return {
+        id,
+        name: match?.skillName || id.replace(/^skill-/, '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      };
     });
   }, [selectedSkillIds, verifiedCompetencies]);
 
-  // Calculate actual completion percentage
-  const completionStats = useMemo(() => {
-    const checks = [
-      { name: 'Profile Photo', done: Boolean(avatarUrl || user.avatar), weight: 10 },
-      { name: 'Professional Headline', done: professionalTitle.trim().length > 0, weight: 15 },
-      { name: 'Location', done: location.trim().length > 0, weight: 10 },
-      { name: 'Biography', done: bio.trim().length >= 30, weight: 15 },
-      { name: 'Experience Years', done: experienceYears > 0, weight: 10 },
-      { name: 'Verified Skills Selected', done: selectedSkillIds.length > 0, weight: 15 },
-      { name: 'Learner Levels', done: learnerLevels.length > 0, weight: 10 },
-      { name: 'Mentorship Approach', done: mentorshipApproach.trim().length >= 20, weight: 10 },
-      { name: 'Available Days', done: availableDays.length > 0, weight: 5 },
-    ];
-
-    const completedWeight = checks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0);
-    const missing = checks.filter((c) => !c.done).map((c) => c.name);
-
-    return { percentage: completedWeight, missing };
-  }, [
-    avatarUrl,
-    user.avatar,
-    professionalTitle,
-    location,
-    bio,
-    experienceYears,
-    selectedSkillIds,
-    learnerLevels,
-    mentorshipApproach,
-    availableDays,
-  ]);
-
-  // Work experience entries helper
-  const addWorkExperience = () => {
-    setWorkExperience([
-      ...workExperience,
-      { id: Date.now().toString(), title: '', company: '', duration: '', description: '' },
-    ]);
-  };
-
-  const updateWorkExperience = (index: number, field: keyof WorkExperienceEntry, value: string) => {
-    const updated = [...workExperience];
-    updated[index] = { ...updated[index], [field]: value };
-    setWorkExperience(updated);
-  };
-
-  const removeWorkExperience = (index: number) => {
-    setWorkExperience(workExperience.filter((_, i) => i !== index));
-  };
-
-  // Education entries helper
-  const addEducation = () => {
-    setEducationHistory([
-      ...educationHistory,
-      { id: Date.now().toString(), degree: '', institution: '', year: '' },
-    ]);
-  };
-
-  const updateEducation = (index: number, field: keyof EducationEntry, value: string) => {
-    const updated = [...educationHistory];
-    updated[index] = { ...updated[index], [field]: value };
-    setEducationHistory(updated);
-  };
-
-  const removeEducation = (index: number) => {
-    setEducationHistory(educationHistory.filter((_, i) => i !== index));
-  };
-
-  // Skill selection toggle
   const toggleSkill = (skillId: string) => {
-    if (selectedSkillIds.includes(skillId)) {
-      setSelectedSkillIds(selectedSkillIds.filter((id) => id !== skillId));
+    setSelectedSkillIds((prev) =>
+      prev.includes(skillId) ? prev.filter((id) => id !== skillId) : [...prev, skillId]
+    );
+  };
+
+  const toggleLearnerLevel = (level: string) => {
+    setLearnerLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+    );
+  };
+
+  const handleSelectAllSkills = () => {
+    if (selectedSkillIds.length === verifiedCompetencies.length) {
+      setSelectedSkillIds([]);
     } else {
-      setSelectedSkillIds([...selectedSkillIds, skillId]);
+      setSelectedSkillIds(verifiedCompetencies.map((c) => c.skillId));
     }
   };
 
-  // Toggle multi-select array values
-  const toggleArrayItem = (list: string[], setList: (vals: string[]) => void, item: string) => {
-    if (list.includes(item)) {
-      setList(list.filter((x) => x !== item));
-    } else {
-      setList([...list, item]);
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Required field validation
+    if (!professionalTitle.trim()) {
+      show('Please provide a professional title.', 'error');
+      return;
     }
-  };
-
-  // Handle Save Draft
-  const handleSaveDraft = async () => {
-    setSavingDraft(true);
-    try {
-      const res = await saveMentorProfile(user.id, {
-        professionalTitle,
-        bio,
-        location,
-        experienceYears,
-        company,
-        workExperience,
-        educationHistory,
-        certifications,
-        mentorshipAreas,
-        skillIds: selectedSkillIds,
-        learnerLevels,
-        mentorshipApproach,
-        preferredFormats,
-        languages,
-        availableDays,
-        preferredTimeSlots,
-        timezone,
-        acceptingLearners,
-        linkedinUrl,
-        githubUrl,
-        portfolioUrl,
-        websiteUrl,
-        avatarUrl: avatarUrl ?? undefined,
-        publish: false,
-      });
-
-      if (res.error || !res.profile) {
-        show(res.error || 'Failed to save draft.', 'error');
-      } else {
-        show('Draft saved to Supabase. You can return anytime to finish and publish.', 'success');
-      }
-    } catch (err) {
-      show(err instanceof Error ? err.message : 'Failed to save draft', 'error');
-    } finally {
-      setSavingDraft(false);
+    if (!bio.trim()) {
+      show('Please provide a brief biography.', 'error');
+      return;
     }
-  };
-
-  // Handle Publish Profile
-  const handlePublish = async () => {
-    if (completionStats.percentage < 60 || selectedSkillIds.length === 0 || !professionalTitle.trim() || !bio.trim()) {
-      show(`Please complete the required fields before publishing: ${completionStats.missing.slice(0, 3).join(', ')}`, 'error');
+    if (selectedSkillIds.length === 0) {
+      show('Please select at least one verified competency to display in your expertise.', 'error');
+      return;
+    }
+    if (learnerLevels.length === 0) {
+      show('Please select at least one learner level.', 'error');
+      return;
+    }
+    if (experienceYears < 0) {
+      show('Experience years cannot be negative.', 'error');
       return;
     }
 
-    setPublishing(true);
+    setSaving(true);
     try {
-      const res = await saveMentorProfile(user.id, {
-        professionalTitle,
-        bio,
-        location,
-        experienceYears,
-        company,
-        workExperience,
-        educationHistory,
-        certifications,
-        mentorshipAreas,
+      const result = await saveMentorProfile(user.id, {
+        professionalTitle: professionalTitle.trim(),
+        bio: bio.trim(),
         skillIds: selectedSkillIds,
+        experienceYears: Number(experienceYears) || 0,
         learnerLevels,
-        mentorshipApproach,
-        preferredFormats,
-        languages,
-        availableDays,
-        preferredTimeSlots,
-        timezone,
-        acceptingLearners,
-        linkedinUrl,
-        githubUrl,
-        portfolioUrl,
-        websiteUrl,
-        avatarUrl: avatarUrl ?? undefined,
-        publish: true,
+        avatarUrl: avatarUrl || undefined,
+        publish: true, // Mark published and complete
       });
 
-      if (res.error || !res.profile) {
-        show(res.error || 'Failed to publish profile.', 'error');
-      } else {
-        setIsPublished(true);
-        show('🎉 Your mentor profile is now published and visible to learners!', 'success');
+      if (result.error || !result.profile) {
+        show(result.error || 'Failed to save profile.', 'error');
+        return;
       }
+
+      setIsPublished(true);
+      setIsEditing(false);
+      show('Profile saved and published successfully!', 'success');
     } catch (err) {
-      show(err instanceof Error ? err.message : 'Failed to publish profile', 'error');
+      console.error('[MentorProfile] Error saving profile:', err);
+      show('An unexpected error occurred while saving your profile.', 'error');
     } finally {
-      setPublishing(false);
+      setSaving(false);
     }
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center py-24 text-ink-400">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm">Loading your mentor profile…</p>
+        <div className="py-24 text-center">
+          <div className="w-10 h-10 border-3 border-[#3770FF] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm font-medium text-ink-500">Loading mentor profile...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <DashboardLayout>
+        <div className="card p-8 max-w-xl mx-auto my-12 text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+          <h2 className="text-xl font-bold text-ink">Access Restricted</h2>
+          <p className="text-sm text-ink-500 leading-relaxed">
+            This profile creation page is only available to mentors who have completed competency verification and received administrator approval.
+          </p>
+          <div className="pt-2">
+            <Link href="/mentor/verification">
+              <Button variant="primary">Check Application Status</Button>
+            </Link>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -383,987 +254,307 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
   return (
     <DashboardLayout>
       <PageHeader
-        title="Complete Your Mentor Profile"
+        title={isPublished && !isEditing ? 'Your Mentor Profile' : 'Complete Your Mentor Profile'}
         description="Your expertise has been verified! Now introduce yourself to learners by completing your professional profile."
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPreviewOpen(true)}
-              className="flex items-center gap-1.5"
-            >
-              <Eye className="w-4 h-4 text-brand-600" />
-              <span>Preview Profile</span>
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleSaveDraft}
-              disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5"
-            >
-              <Save className="w-4 h-4" />
-              <span>{savingDraft ? 'Saving…' : 'Save Draft'}</span>
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handlePublish}
-              disabled={publishing || savingDraft}
-              className="flex items-center gap-1.5"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{publishing ? 'Publishing…' : isPublished ? 'Save & Republish' : 'Publish Profile'}</span>
-            </Button>
-          </div>
-        }
       />
 
-      {/* Published Status Banner */}
-      {isPublished && (
-        <div className="card p-4 mb-6 border-l-4 border-emerald-500 bg-emerald-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-emerald-950">Your profile is published and live!</p>
-              <p className="text-xs text-emerald-700">Learners can discover your profile, book mentorship sessions, and connect with you.</p>
-            </div>
-          </div>
-          <Link
-            href={`/mentors/${user.id}`}
-            target="_blank"
-            className="text-xs font-semibold text-brand-700 hover:text-brand-800 flex items-center gap-1 shrink-0"
-          >
-            <span>View Public Profile</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      )}
-
-      {/* Progress & Completion Meter */}
-      <div className="card p-5 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-          <div>
-            <span className="text-sm font-semibold text-ink">Profile Strength</span>
-            <span className="text-xs text-ink-400 ml-2">
-              {completionStats.percentage === 100 ? 'All sections complete' : `${completionStats.percentage}% completed`}
-            </span>
-          </div>
-          {completionStats.missing.length > 0 && (
-            <span className="text-xs text-amber-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Next: {completionStats.missing[0]}
-            </span>
-          )}
-        </div>
-        <div className="w-full h-2.5 bg-ink-100 rounded-full overflow-hidden">
-          <div
-            className={`h-full transition-all duration-500 rounded-full ${
-              completionStats.percentage >= 80
-                ? 'bg-emerald-500'
-                : completionStats.percentage >= 50
-                ? 'bg-brand-500'
-                : 'bg-amber-500'
-            }`}
-            style={{ width: `${Math.max(5, completionStats.percentage)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Form Navigation Tabs */}
-      <div className="flex border-b border-ink-100 mb-6 overflow-x-auto scrollbar-none gap-2">
-        {[
-          { key: 'info', label: 'A. Basic Info' },
-          { key: 'experience', label: 'B. Experience' },
-          { key: 'skills', label: 'C. Verified Skills' },
-          { key: 'mentorship', label: 'D. Mentorship' },
-          { key: 'availability', label: 'E. Availability' },
-          { key: 'links', label: 'F. Social Links' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key as ProfileTabKey)}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === tab.key
-                ? 'border-brand-600 text-brand-600 font-semibold'
-                : 'border-transparent text-ink-500 hover:text-ink-700 hover:border-ink-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Form Sections */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* SECTION A: PROFILE INFORMATION */}
-          {activeTab === 'info' && (
-            <div className="space-y-6">
-              <div className="card p-6 space-y-4">
-                <div className="border-b border-ink-100 pb-3">
-                  <h3 className="text-lg font-bold text-ink">Section A: Profile Information</h3>
-                  <p className="text-xs text-ink-400">Introduce your identity and background to prospective learners.</p>
-                </div>
-
-                {/* Profile Photo */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1.5">
-                    Profile Photograph <span className="text-red-500">*</span>
-                  </label>
-                  <p className="text-xs text-ink-400 mb-3">Upload a friendly, professional photo. (Square JPG, PNG, or WebP up to 5MB)</p>
-                  <div className="p-4 bg-ink-50 rounded-xl border border-ink-100">
-                    <ProfilePictureUpload
-                      currentAvatarUrl={avatarUrl ?? user.avatar}
-                      userName={user.name}
-                      showSaveButton={true}
-                      onSave={async (file) => {
-                        const res = await uploadUserAvatar(user.id, file);
-                        if (res.success && res.avatarUrl) {
-                          setAvatarUrl(res.avatarUrl);
-                          show('Profile photograph updated successfully.', 'success');
-                        }
-                        return res;
-                      }}
-                      onRemove={async () => {
-                        const res = await removeUserAvatar(user.id);
-                        if (res.success) {
-                          setAvatarUrl(null);
-                          show('Profile photograph removed.', 'info');
-                        }
-                        return res;
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Full Name (Read-only from account) */}
-                <div>
-                  <Input
-                    label="Full name"
-                    value={user.name}
-                    disabled
-                    readOnly
-                  />
-                  <p className="text-xs text-ink-400 mt-1">Full name is populated from your verified SkillSphere account profile.</p>
-                </div>
-
-                {/* Professional Headline */}
-                <div>
-                  <Input
-                    label="Professional headline"
-                    required
-                    value={professionalTitle}
-                    onChange={(e) => setProfessionalTitle(e.target.value)}
-                    placeholder="e.g. Full-Stack Developer & Mentor, Senior Machine Learning Engineer"
-                  />
-                  <p className="text-xs text-ink-400 mt-1">A punchy title summarizing your primary engineering role.</p>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <Input
-                    label="Location (City and Country)"
-                    required
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g. Nairobi, Kenya or London, United Kingdom"
-                  />
-                </div>
-
-                {/* Professional Biography */}
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-sm font-medium text-ink">
-                      Professional biography <span className="text-red-500">*</span>
-                    </label>
-                    <span className={`text-xs ${bio.length < 30 ? 'text-amber-500' : 'text-ink-400'}`}>
-                      {bio.length} characters (min 30)
-                    </span>
-                  </div>
-                  <Textarea
-                    rows={5}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="e.g. I help aspiring developers build practical web development skills through hands-on projects, code reviews, and structured learning..."
-                  />
-                  <p className="text-xs text-ink-400 mt-1">
-                    Explain who you are, your passion for mentorship, and how you guide students to success.
-                  </p>
-                </div>
-
-                <div className="pt-2 flex justify-end">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => setActiveTab('experience')}
-                    className="flex items-center gap-1.5"
-                  >
-                    <span>Save & Continue to Experience</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
+      {/* Published State: View Mode */}
+      {isPublished && !isEditing ? (
+        <div className="space-y-6">
+          {/* Status banner */}
+          <div className="card p-5 bg-[#e6f7ef]/50 border border-[#bbf0d6] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#e6f7ef] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-[#107544]" />
+              </div>
+              <div>
+                <p className="font-semibold text-[#107544]">Profile is Published & Live</p>
+                <p className="text-xs text-[#273339]/70 mt-0.5">
+                  Your profile is actively discoverable by learners in the SkillSphere directory.
+                </p>
               </div>
             </div>
-          )}
-
-          {/* SECTION B: PROFESSIONAL EXPERIENCE */}
-          {activeTab === 'experience' && (
-            <div className="space-y-6">
-              <div className="card p-6 space-y-5">
-                <div className="border-b border-ink-100 pb-3">
-                  <h3 className="text-lg font-bold text-ink">Section B: Professional Experience</h3>
-                  <p className="text-xs text-ink-400">Highlight your career background, education, and credentials.</p>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Organization or Company (Optional)"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    placeholder="e.g. Google, Safaricom, Freelance"
-                  />
-                  <Input
-                    label="Years of professional experience"
-                    type="number"
-                    min={0}
-                    max={50}
-                    required
-                    value={experienceYears}
-                    onChange={(e) => setExperienceYears(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  />
-                </div>
-
-                {/* Previous Work Experience Entries */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-semibold text-ink flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-ink-500" /> Work Experience (Optional)
-                      </h4>
-                      <p className="text-xs text-ink-400">Add key positions you have held.</p>
-                    </div>
-                    <Button variant="secondary" size="sm" onClick={addWorkExperience} className="flex items-center gap-1">
-                      <Plus className="w-3.5 h-3.5" /> Add Experience
-                    </Button>
-                  </div>
-
-                  {workExperience.length === 0 ? (
-                    <div className="p-4 bg-ink-50 rounded-xl border border-dashed border-ink-200 text-center text-xs text-ink-400">
-                      No previous roles added yet. Click &quot;Add Experience&quot; to list your career background.
-                    </div>
-                  ) : (
-                    workExperience.map((work, idx) => (
-                      <div key={work.id || idx} className="p-4 bg-ink-50 rounded-xl border border-ink-100 space-y-3 relative">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-semibold text-ink-500">Role #{idx + 1}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeWorkExperience(idx)}
-                            className="text-red-500 hover:text-red-700 p-1"
-                            title="Remove role"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <div className="grid sm:grid-cols-3 gap-3">
-                          <Input
-                            label="Job title"
-                            placeholder="e.g. Frontend Engineer"
-                            value={work.title}
-                            onChange={(e) => updateWorkExperience(idx, 'title', e.target.value)}
-                          />
-                          <Input
-                            label="Company"
-                            placeholder="e.g. TechCorp"
-                            value={work.company}
-                            onChange={(e) => updateWorkExperience(idx, 'company', e.target.value)}
-                          />
-                          <Input
-                            label="Duration"
-                            placeholder="e.g. 2021 – 2024"
-                            value={work.duration || ''}
-                            onChange={(e) => updateWorkExperience(idx, 'duration', e.target.value)}
-                          />
-                        </div>
-                        <Textarea
-                          label="Description (Optional)"
-                          rows={2}
-                          placeholder="Brief summary of projects, architecture, and tech stack utilized..."
-                          value={work.description || ''}
-                          onChange={(e) => updateWorkExperience(idx, 'description', e.target.value)}
-                        />
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Educational Background Entries */}
-                <div className="space-y-3 pt-4 border-t border-ink-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-semibold text-ink flex items-center gap-2">
-                        <GraduationCap className="w-4 h-4 text-ink-500" /> Educational Background (Optional)
-                      </h4>
-                      <p className="text-xs text-ink-400">Degrees, diplomas, and academic credentials.</p>
-                    </div>
-                    <Button variant="secondary" size="sm" onClick={addEducation} className="flex items-center gap-1">
-                      <Plus className="w-3.5 h-3.5" /> Add Education
-                    </Button>
-                  </div>
-
-                  {educationHistory.length === 0 ? (
-                    <div className="p-4 bg-ink-50 rounded-xl border border-dashed border-ink-200 text-center text-xs text-ink-400">
-                      No education entries added yet.
-                    </div>
-                  ) : (
-                    educationHistory.map((edu, idx) => (
-                      <div key={edu.id || idx} className="p-4 bg-ink-50 rounded-xl border border-ink-100 space-y-3 relative">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-semibold text-ink-500">Degree #{idx + 1}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeEducation(idx)}
-                            className="text-red-500 hover:text-red-700 p-1"
-                            title="Remove degree"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <div className="grid sm:grid-cols-3 gap-3">
-                          <Input
-                            label="Degree / Major"
-                            placeholder="e.g. BSc Computer Science"
-                            value={edu.degree}
-                            onChange={(e) => updateEducation(idx, 'degree', e.target.value)}
-                          />
-                          <Input
-                            label="Institution"
-                            placeholder="e.g. Strathmore University"
-                            value={edu.institution}
-                            onChange={(e) => updateEducation(idx, 'institution', e.target.value)}
-                          />
-                          <Input
-                            label="Graduation Year"
-                            placeholder="e.g. 2022"
-                            value={edu.year || ''}
-                            onChange={(e) => updateEducation(idx, 'year', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Certifications */}
-                <div className="space-y-3 pt-4 border-t border-ink-100">
-                  <h4 className="text-sm font-semibold text-ink">Certifications (Optional)</h4>
-                  <div className="flex gap-2">
-                    <Input
-                      value={certInput}
-                      onChange={(e) => setCertInput(e.target.value)}
-                      placeholder="e.g. AWS Certified Developer, Meta React Specialization"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (certInput.trim()) {
-                            setCertifications([...certifications, certInput.trim()]);
-                            setCertInput('');
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        if (certInput.trim()) {
-                          setCertifications([...certifications, certInput.trim()]);
-                          setCertInput('');
-                        }
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {certifications.map((cert, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-ink-100 text-ink-800 rounded-lg text-xs font-medium"
-                      >
-                        {cert}
-                        <button
-                          type="button"
-                          onClick={() => setCertifications(certifications.filter((_, idx) => idx !== i))}
-                          className="hover:text-red-500"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-between">
-                  <Button variant="secondary" size="sm" onClick={() => setActiveTab('info')}>
-                    Back
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={() => setActiveTab('skills')} className="flex items-center gap-1.5">
-                    <span>Save & Continue to Skills</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SECTION C: SKILLS AND EXPERTISE */}
-          {activeTab === 'skills' && (
-            <div className="space-y-6">
-              <div className="card p-6 space-y-4">
-                <div className="border-b border-ink-100 pb-3">
-                  <h3 className="text-lg font-bold text-ink">Section C: Verified Skills & Expertise</h3>
-                  <p className="text-xs text-ink-400">
-                    These are competencies that passed SkillSphere verification during your application. Select which ones to highlight on your public profile.
-                  </p>
-                </div>
-
-                {verifiedCompetencies.length === 0 ? (
-                  <div className="p-6 bg-amber-50/60 rounded-xl border border-amber-200 text-center space-y-2">
-                    <AlertCircle className="w-6 h-6 text-amber-600 mx-auto" />
-                    <p className="text-sm font-semibold text-amber-900">No verified competencies found</p>
-                    <p className="text-xs text-amber-700 max-w-md mx-auto">
-                      Competencies are automatically linked once verified by administrators. If you recently passed verification, they will appear here.
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-ink">
-                        Verified Competencies ({verifiedCompetencies.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSkillIds(verifiedCompetencies.map((c) => c.skillId))}
-                        className="text-xs text-brand-600 hover:text-brand-800 font-medium"
-                      >
-                        Select all
-                      </button>
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {verifiedCompetencies.map((comp) => {
-                        const isSelected = selectedSkillIds.includes(comp.skillId);
-                        return (
-                          <div
-                            key={comp.skillId}
-                            onClick={() => toggleSkill(comp.skillId)}
-                            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                              isSelected
-                                ? 'bg-blue-50/70 border-blue-300 shadow-xs'
-                                : 'bg-ink-50/40 border-ink-200 hover:border-ink-300'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => {}} // handled by parent onClick
-                                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
-                              />
-                              <div>
-                                <p className="text-sm font-semibold text-ink">{comp.skillName}</p>
-                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-                                  <CheckCircle2 className="w-3 h-3" /> Verified Competency
-                                </span>
-                              </div>
-                            </div>
-                            <Badge variant={isSelected ? 'brand' : 'gray'}>
-                              {isSelected ? 'Highlighted' : 'Hidden'}
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-ink-400 mt-3">
-                      At least one verified skill must be highlighted on your public profile.
-                    </p>
-                  </div>
-                )}
-
-                <div className="pt-4 flex justify-between">
-                  <Button variant="secondary" size="sm" onClick={() => setActiveTab('experience')}>
-                    Back
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={() => setActiveTab('mentorship')} className="flex items-center gap-1.5">
-                    <span>Save & Continue to Mentorship</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SECTION D: MENTORSHIP INFORMATION */}
-          {activeTab === 'mentorship' && (
-            <div className="space-y-6">
-              <div className="card p-6 space-y-5">
-                <div className="border-b border-ink-100 pb-3">
-                  <h3 className="text-lg font-bold text-ink">Section D: Mentorship Details</h3>
-                  <p className="text-xs text-ink-400">Tell learners about your teaching style, target levels, and focus areas.</p>
-                </div>
-
-                {/* Mentorship Areas */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1.5">Mentorship Areas</label>
-                  <p className="text-xs text-ink-400 mb-2">Key domains where you provide hands-on guidance.</p>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={areaInput}
-                      onChange={(e) => setAreaInput(e.target.value)}
-                      placeholder="e.g. Web Development, System Design, Career Transition"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (areaInput.trim()) {
-                            setMentorshipAreas([...mentorshipAreas, areaInput.trim()]);
-                            setAreaInput('');
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        if (areaInput.trim()) {
-                          setMentorshipAreas([...mentorshipAreas, areaInput.trim()]);
-                          setAreaInput('');
-                        }
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {mentorshipAreas.map((area, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-ink-100 text-ink-800 rounded-lg text-xs font-medium"
-                      >
-                        {area}
-                        <button
-                          type="button"
-                          onClick={() => setMentorshipAreas(mentorshipAreas.filter((_, idx) => idx !== i))}
-                          className="hover:text-red-500"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Learner Levels Supported */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1">
-                    Learner Levels Supported <span className="text-red-500">*</span>
-                  </label>
-                  <p className="text-xs text-ink-400 mb-3">Which student experience stages are best suited for your mentorship?</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {LEARNER_LEVEL_OPTIONS.map((level) => {
-                      const isSelected = learnerLevels.includes(level);
-                      return (
-                        <button
-                          key={level}
-                          type="button"
-                          onClick={() => toggleArrayItem(learnerLevels, setLearnerLevels, level)}
-                          className={`p-3 rounded-xl border text-center text-sm font-semibold transition-all ${
-                            isSelected
-                              ? 'bg-brand-50 border-brand-500 text-brand-700 shadow-xs'
-                              : 'bg-ink-50/50 border-ink-200 text-ink-600 hover:border-ink-300'
-                          }`}
-                        >
-                          {level}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Mentorship Approach */}
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-sm font-semibold text-ink">
-                      Mentorship Approach <span className="text-red-500">*</span>
-                    </label>
-                    <span className="text-xs text-ink-400">{mentorshipApproach.length} characters</span>
-                  </div>
-                  <Textarea
-                    rows={4}
-                    value={mentorshipApproach}
-                    onChange={(e) => setMentorshipApproach(e.target.value)}
-                    placeholder="e.g. My mentorship approach centers on project-based learning and asynchronous code reviews. In our sessions, we walk through real challenges, debug live issues, and establish milestones..."
-                  />
-                  <p className="text-xs text-ink-400 mt-1">
-                    Describe your pedagogical approach, session structure, and feedback cadence.
-                  </p>
-                </div>
-
-                {/* Preferred Mentorship Formats */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1">Preferred Mentorship Formats</label>
-                  <div className="grid sm:grid-cols-3 gap-3 mt-2">
-                    {FORMAT_OPTIONS.map((fmt) => {
-                      const isSelected = preferredFormats.includes(fmt);
-                      return (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => toggleArrayItem(preferredFormats, setPreferredFormats, fmt)}
-                          className={`p-3 rounded-xl border text-center text-sm font-medium transition-all ${
-                            isSelected
-                              ? 'bg-brand-50 border-brand-500 text-brand-700'
-                              : 'bg-ink-50/50 border-ink-200 text-ink-600 hover:border-ink-300'
-                          }`}
-                        >
-                          {fmt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Languages Spoken */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1.5">Languages Spoken</label>
-                  <div className="flex gap-2 mb-2">
-                    <Input
-                      value={languageInput}
-                      onChange={(e) => setLanguageInput(e.target.value)}
-                      placeholder="e.g. English, Swahili, French"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (languageInput.trim()) {
-                            setLanguages([...languages, languageInput.trim()]);
-                            setLanguageInput('');
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        if (languageInput.trim()) {
-                          setLanguages([...languages, languageInput.trim()]);
-                          setLanguageInput('');
-                        }
-                      }}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {languages.map((lang, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-ink-100 text-ink-800 rounded-lg text-xs font-medium"
-                      >
-                        {lang}
-                        <button
-                          type="button"
-                          onClick={() => setLanguages(languages.filter((_, idx) => idx !== i))}
-                          className="hover:text-red-500"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-between">
-                  <Button variant="secondary" size="sm" onClick={() => setActiveTab('skills')}>
-                    Back
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={() => setActiveTab('availability')} className="flex items-center gap-1.5">
-                    <span>Save & Continue to Availability</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SECTION E: AVAILABILITY */}
-          {activeTab === 'availability' && (
-            <div className="space-y-6">
-              <div className="card p-6 space-y-5">
-                <div className="border-b border-ink-100 pb-3">
-                  <h3 className="text-lg font-bold text-ink">Section E: Schedule & Availability</h3>
-                  <p className="text-xs text-ink-400">Specify when you are generally reachable for mentorship sessions.</p>
-                </div>
-
-                {/* Accepting Learners Switch */}
-                <div className="p-4 bg-ink-50 rounded-xl border border-ink-100 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">Currently Accepting Learners</p>
-                    <p className="text-xs text-ink-400">When enabled, students can request mentorship sessions.</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={acceptingLearners}
-                      onChange={(e) => setAcceptingLearners(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-ink-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-ink-300 after:border after:rounded-full after:h-5 after:width-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
-                </div>
-
-                {/* Available Days */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1.5">Available Days</label>
-                  <div className="flex flex-wrap gap-2">
-                    {DAY_OPTIONS.map((day) => {
-                      const isSelected = availableDays.includes(day);
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => toggleArrayItem(availableDays, setAvailableDays, day)}
-                          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                            isSelected
-                              ? 'bg-brand-600 text-white border-brand-600'
-                              : 'bg-white text-ink-600 border-ink-200 hover:border-ink-300'
-                          }`}
-                        >
-                          {day}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Preferred Time Slots */}
-                <div>
-                  <label className="block text-sm font-semibold text-ink mb-1.5">Preferred Time Slots</label>
-                  <div className="grid sm:grid-cols-2 gap-2.5">
-                    {TIME_SLOT_OPTIONS.map((slot) => {
-                      const isSelected = preferredTimeSlots.includes(slot);
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => toggleArrayItem(preferredTimeSlots, setPreferredTimeSlots, slot)}
-                          className={`p-3 rounded-xl border text-left text-xs font-medium transition-all ${
-                            isSelected
-                              ? 'bg-brand-50 border-brand-500 text-brand-700'
-                              : 'bg-white border-ink-200 text-ink-600 hover:border-ink-300'
-                          }`}
-                        >
-                          {slot}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Time Zone */}
-                <div>
-                  <Input
-                    label="Time Zone"
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    placeholder="e.g. Africa/Nairobi (UTC+3) or America/New_York (UTC-5)"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-between">
-                  <Button variant="secondary" size="sm" onClick={() => setActiveTab('mentorship')}>
-                    Back
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={() => setActiveTab('links')} className="flex items-center gap-1.5">
-                    <span>Save & Continue to Links</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SECTION F: PROFESSIONAL LINKS */}
-          {activeTab === 'links' && (
-            <div className="space-y-6">
-              <div className="card p-6 space-y-4">
-                <div className="border-b border-ink-100 pb-3">
-                  <h3 className="text-lg font-bold text-ink">Section F: Professional Links (Optional)</h3>
-                  <p className="text-xs text-ink-400">Share your external profiles to help learners learn more about your work.</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Linkedin className="w-4 h-4 text-blue-600 absolute left-3 top-9" />
-                    <Input
-                      label="LinkedIn profile URL"
-                      className="pl-9"
-                      placeholder="https://linkedin.com/in/username"
-                      value={linkedinUrl}
-                      onChange={(e) => setLinkedinUrl(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Github className="w-4 h-4 text-ink-700 absolute left-3 top-9" />
-                    <Input
-                      label="GitHub profile URL"
-                      className="pl-9"
-                      placeholder="https://github.com/username"
-                      value={githubUrl}
-                      onChange={(e) => setGithubUrl(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Globe className="w-4 h-4 text-emerald-600 absolute left-3 top-9" />
-                    <Input
-                      label="Personal portfolio URL"
-                      className="pl-9"
-                      placeholder="https://myportfolio.dev"
-                      value={portfolioUrl}
-                      onChange={(e) => setPortfolioUrl(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <LinkIcon className="w-4 h-4 text-purple-600 absolute left-3 top-9" />
-                    <Input
-                      label="Personal website / blog"
-                      className="pl-9"
-                      placeholder="https://myblog.com"
-                      value={websiteUrl}
-                      onChange={(e) => setWebsiteUrl(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 flex justify-between">
-                  <Button variant="secondary" size="sm" onClick={() => setActiveTab('availability')}>
-                    Back
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handlePublish}
-                    disabled={publishing}
-                    className="flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>{publishing ? 'Publishing…' : 'Publish My Profile'}</span>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Col: Live Profile Preview Card */}
-        <div className="space-y-4">
-          <div className="sticky top-20 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-ink uppercase tracking-wider">Live Public Card</span>
-              <button
-                type="button"
-                onClick={() => setPreviewOpen(true)}
-                className="text-xs text-brand-600 hover:text-brand-800 font-semibold flex items-center gap-1"
+            <div className="flex items-center gap-3 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1.5"
               >
-                <Eye className="w-3.5 h-3.5" /> Full preview
-              </button>
+                <Edit3 className="w-4 h-4 text-ink-600" />
+                Edit Profile
+              </Button>
+              <Link href={`/mentors/${user.id}`} target="_blank">
+                <Button variant="ghost" size="sm" className="flex items-center gap-1.5 text-[#3770FF]">
+                  <ExternalLink className="w-4 h-4" />
+                  View Public Page
+                </Button>
+              </Link>
             </div>
+          </div>
 
-            {/* Exact Reference Public Card Preview */}
+          {/* Automatic Public Profile Card */}
+          <div className="flex justify-center pt-2 pb-8">
             <MentorPublicCard
               fullName={user.name}
               professionalHeadline={professionalTitle}
               biography={bio}
-              avatarUrl={avatarUrl ?? user.avatar}
-              skills={selectedSkillsObjects}
+              avatarUrl={avatarUrl}
+              skills={previewSkills}
               experienceYears={experienceYears}
               learnerLevels={learnerLevels}
-              rating={rating}
-              reviewCount={reviewCount}
+              rating={ratingSummary?.averageRating || 0}
+              reviewCount={ratingSummary?.totalReviews || 0}
+              isPreview={false}
+            />
+          </div>
+        </div>
+      ) : (
+        /* Form & Live Preview Mode */
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Form containing ONLY the 6 fields */}
+          <div className="lg:col-span-7">
+            <form onSubmit={handleSaveProfile} className="card p-6 sm:p-8 space-y-6 bg-white border border-ink-100 shadow-sm rounded-2xl">
+              <div>
+                <h3 className="text-lg font-bold text-[#273339]">Profile Information</h3>
+                <p className="text-xs text-ink-400 mt-1">
+                  Fill in your professional details below to generate your public mentor profile.
+                </p>
+              </div>
+
+              {/* Read-only Full Name from Authenticated Account */}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wider">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={user.name}
+                  disabled
+                  className="input bg-ink-50 text-ink-700 cursor-not-allowed opacity-90 font-medium"
+                />
+                <p className="text-xs text-ink-400">Retrieved automatically from your verified account.</p>
+              </div>
+
+              {/* Field 1: Profile Photo */}
+              <div className="space-y-2 pt-2 border-t border-ink-100">
+                <label className="block text-sm font-semibold text-[#273339]">
+                  1. Profile Photo
+                </label>
+                <p className="text-xs text-ink-400 mb-3">
+                  Upload a clear, professional picture of yourself.
+                </p>
+                <ProfilePictureUpload
+                  currentAvatarUrl={avatarUrl ?? undefined}
+                  userName={user.name}
+                  onSave={async (file) => {
+                    const res = await uploadUserAvatar(user.id, file);
+                    if (res.success && res.avatarUrl) {
+                      setAvatarUrl(res.avatarUrl);
+                      show('Profile photo updated!', 'success');
+                    } else if (res.error) {
+                      show(res.error, 'error');
+                    }
+                    return res;
+                  }}
+                  onRemove={async () => {
+                    const res = await removeUserAvatar(user.id);
+                    if (res.success) {
+                      setAvatarUrl(null);
+                      show('Profile photo removed.', 'info');
+                    } else if (res.error) {
+                      show(res.error, 'error');
+                    }
+                    return res;
+                  }}
+                />
+              </div>
+
+              {/* Field 2: Professional Title */}
+              <div className="space-y-1 pt-2 border-t border-ink-100">
+                <Input
+                  label="2. Professional Title *"
+                  placeholder="e.g. Full-Stack Developer & Mentor"
+                  value={professionalTitle}
+                  onChange={(e) => setProfessionalTitle(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-ink-400">Example: Full-Stack Developer & Mentor</p>
+              </div>
+
+              {/* Field 3: Biography */}
+              <div className="space-y-1 pt-2 border-t border-ink-100">
+                <Textarea
+                  label="3. Biography *"
+                  rows={4}
+                  placeholder="A short description of yourself and what you teach..."
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-ink-400">
+                  A concise description of your background and mentoring approach.
+                </p>
+              </div>
+
+              {/* Field 4: Expertise (Competency-Approved Skills from Supabase) */}
+              <div className="space-y-3 pt-2 border-t border-ink-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-semibold text-[#273339]">
+                      4. Expertise (Approved Skills) *
+                    </label>
+                    <p className="text-xs text-ink-400 mt-0.5">
+                      Select which verified competencies to display on your public profile.
+                    </p>
+                  </div>
+                  {verifiedCompetencies.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSkills}
+                      className="text-xs font-semibold text-[#3770FF] hover:underline"
+                    >
+                      {selectedSkillIds.length === verifiedCompetencies.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  )}
+                </div>
+
+                {verifiedCompetencies.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>No verified competencies found. Only skills approved by administrators can be displayed.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                    {verifiedCompetencies.map((comp) => {
+                      const isSelected = selectedSkillIds.includes(comp.skillId);
+                      return (
+                        <button
+                          key={comp.skillId}
+                          type="button"
+                          onClick={() => toggleSkill(comp.skillId)}
+                          className={`flex items-center gap-2 p-3 rounded-xl border text-left text-xs font-medium transition-all ${
+                            isSelected
+                              ? 'bg-[#EBF2FF] border-[#3770FF] text-[#3770FF] shadow-xs'
+                              : 'bg-white border-ink-200 text-ink-600 hover:border-brand-300'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                              isSelected ? 'bg-[#3770FF] border-[#3770FF] text-white' : 'border-ink-300 bg-white'
+                            }`}
+                          >
+                            {isSelected && <span className="text-[10px] font-bold">✓</span>}
+                          </div>
+                          <span className="truncate">{comp.skillName}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Field 5: Experience */}
+              <div className="space-y-1 pt-2 border-t border-ink-100">
+                <Input
+                  label="5. Experience (Years) *"
+                  type="number"
+                  min="0"
+                  max="60"
+                  placeholder="e.g. 4"
+                  value={experienceYears === 0 ? '' : experienceYears.toString()}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setExperienceYears(isNaN(val) ? 0 : Math.max(0, val));
+                  }}
+                  required
+                />
+                <p className="text-xs text-ink-400">Total number of years of professional industry experience.</p>
+              </div>
+
+              {/* Field 6: Learner Level */}
+              <div className="space-y-2 pt-2 border-t border-ink-100">
+                <label className="block text-sm font-semibold text-[#273339]">
+                  6. Learner Level *
+                </label>
+                <p className="text-xs text-ink-400">
+                  Select which learner levels you are comfortable mentoring (select all that apply):
+                </p>
+                <div className="flex flex-wrap gap-2.5 pt-1">
+                  {LEARNER_LEVEL_OPTIONS.map((level) => {
+                    const isSelected = learnerLevels.includes(level);
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => toggleLearnerLevel(level)}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+                          isSelected
+                            ? 'bg-[#3770FF] text-white border-[#3770FF] shadow-sm'
+                            : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300'
+                        }`}
+                      >
+                        {isSelected && '✓ '}
+                        {level}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Form Action Buttons */}
+              <div className="pt-6 border-t border-ink-100 flex items-center gap-3">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  disabled={saving}
+                  className="flex-1 sm:flex-none sm:min-w-[180px] bg-[#3770FF] hover:bg-[#2c5ad4] text-white"
+                >
+                  {saving ? 'Saving Profile...' : 'Save Profile'}
+                </Button>
+
+                {isPublished && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => setIsEditing(false)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* Right Column: Live Generated Public Profile Preview */}
+          <div className="lg:col-span-5 sticky top-6 space-y-3">
+            <div className="flex items-center gap-2 text-ink-500 font-semibold text-xs uppercase tracking-wider">
+              <Eye className="w-4 h-4 text-[#3770FF]" />
+              <span>Live Public Profile Preview</span>
+            </div>
+
+            <MentorPublicCard
+              fullName={user.name}
+              professionalHeadline={professionalTitle}
+              biography={bio}
+              avatarUrl={avatarUrl}
+              skills={previewSkills}
+              experienceYears={experienceYears}
+              learnerLevels={learnerLevels}
+              rating={ratingSummary?.averageRating || 0}
+              reviewCount={ratingSummary?.totalReviews || 0}
               isPreview={true}
             />
 
-            {/* Actions Panel */}
-            <div className="card p-5 space-y-3 bg-ink-50/50">
-              <Button
-                variant="primary"
-                fullWidth
-                size="lg"
-                onClick={handlePublish}
-                disabled={publishing}
-                className="flex items-center justify-center gap-2 font-bold"
-              >
-                <Sparkles className="w-5 h-5" />
-                <span>{publishing ? 'Publishing…' : isPublished ? 'Save & Republish' : 'Publish Profile'}</span>
-              </Button>
-
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={handleSaveDraft}
-                disabled={savingDraft || publishing}
-                className="flex items-center justify-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>{savingDraft ? 'Saving Draft…' : 'Save Draft'}</span>
-              </Button>
-            </div>
+            <p className="text-xs text-ink-400 text-center px-4">
+              Your profile will be generated automatically and published to the learner directory once you click <strong>Save Profile</strong>.
+            </p>
           </div>
         </div>
-      </div>
-
-      {/* Full Preview Modal */}
-      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} title="Public Profile Preview">
-        <div className="space-y-4 p-2">
-          <p className="text-xs text-ink-400 mb-2">
-            This is exactly how prospective students and employers will view your verified mentor card across SkillSphere.
-          </p>
-          <MentorPublicCard
-            fullName={user.name}
-            professionalHeadline={professionalTitle}
-            biography={bio}
-            avatarUrl={avatarUrl ?? user.avatar}
-            skills={selectedSkillsObjects}
-            experienceYears={experienceYears}
-            learnerLevels={learnerLevels}
-            rating={rating}
-            reviewCount={reviewCount}
-            isPreview={true}
-          />
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="secondary" onClick={() => setPreviewOpen(false)}>
-              Close Preview
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setPreviewOpen(false);
-                void handlePublish();
-              }}
-              disabled={publishing}
-            >
-              Publish Now
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      )}
     </DashboardLayout>
   );
 }

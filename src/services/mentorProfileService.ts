@@ -201,7 +201,7 @@ export async function getMentorVerifiedCompetencies(userId: string): Promise<Ver
 export interface SaveMentorProfileInput {
   professionalTitle: string;
   bio: string;
-  location: string;
+  location?: string;
   experienceYears: number;
   education?: string;
   certifications?: string[];
@@ -233,13 +233,13 @@ export async function saveMentorProfile(
 ): Promise<{ profile: MentorProfile | null; error?: string }> {
   const supabase = createClient();
 
-  // Validate mandatory fields for completion
+  // Validate mandatory fields for completion: only the 6 required fields
   const hasTitle = fields.professionalTitle.trim().length > 0;
   const hasBio = fields.bio.trim().length > 0;
   const hasSkills = fields.skillIds.length > 0;
-  const hasLocation = fields.location.trim().length > 0;
+  const hasLearnerLevels = (fields.learnerLevels ?? []).length > 0;
 
-  const isComplete = hasTitle && hasBio && hasSkills && hasLocation;
+  const isComplete = hasTitle && hasBio && hasSkills && hasLearnerLevels;
   const shouldPublish = fields.publish === true;
 
   if (shouldPublish) {
@@ -260,7 +260,7 @@ export async function saveMentorProfile(
     if (!isComplete) {
       return {
         profile: null,
-        error: 'Please fill in all required fields (professional headline, bio, location, and at least one skill) before publishing.',
+        error: 'Please fill in all required fields (professional title, biography, expertise, and learner level) before saving.',
       };
     }
   }
@@ -275,7 +275,7 @@ export async function saveMentorProfile(
     user_id: userId,
     professional_title: fields.professionalTitle.trim(),
     bio: fields.bio.trim(),
-    location: fields.location.trim(),
+    location: (fields.location ?? '').trim(),
     experience_years: fields.experienceYears,
     education: (fields.education ?? '').trim(),
     certifications: fields.certifications ?? [],
