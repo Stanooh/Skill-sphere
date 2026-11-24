@@ -8,35 +8,44 @@ import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { ProfilePictureUpload } from '@/components/profile/ProfilePictureUpload';
-import { uploadUserAvatar, removeUserAvatar } from '@/services/avatarService';
+import { uploadUserAvatar, removeUserAvatar, createAvatarPreview } from '@/services/avatarService';
 import {
   getMyMentorProfile,
   saveMentorProfile,
+  syncMentorProfileAvatar,
   getMentorVerifiedCompetencies,
   type VerifiedCompetency,
 } from '@/services/mentorProfileService';
 import { getMentorRatingSummary } from '@/services/mentorReviewService';
 import { checkMentorAccess } from '@/services/mentorVerificationService';
 import { MentorPublicCard } from '@/components/mentors/MentorPublicCard';
-import type { User, MentorRatingSummary } from '@/types';
+import type { User, MentorRatingSummary, MentorProfile as MentorProfileRecord } from '@/types';
 import {
   CheckCircle2,
   AlertCircle,
   Eye,
   Edit3,
   ExternalLink,
+  Calendar,
+  XCircle,
 } from 'lucide-react';
 
 const LEARNER_LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
 
 export function MentorProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   if (!user) return null;
 
-  return <MentorProfileContent key={user.id} user={user} />;
+  return <MentorProfileContent key={user.id} user={user} refreshUser={refreshUser} />;
 }
 
-function MentorProfileContent({ user }: { user: User }) {
+function MentorProfileContent({
+  user,
+  refreshUser,
+}: {
+  user: User;
+  refreshUser: () => Promise<void>;
+}) {
   const { show } = useToast();
 
   // Lifecycle & Access states
@@ -48,9 +57,11 @@ function MentorProfileContent({ user }: { user: User }) {
   // Verified Competencies from Supabase
   const [verifiedCompetencies, setVerifiedCompetencies] = useState<VerifiedCompetency[]>([]);
 
-  // The 6 required fields ONLY
+  // Form fields
   // 1. Profile photo
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar ?? null);
+  const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   // 2. Professional title
   const [professionalTitle, setProfessionalTitle] = useState('');
   // 3. Biography
@@ -61,9 +72,20 @@ function MentorProfileContent({ user }: { user: User }) {
   const [experienceYears, setExperienceYears] = useState<number>(0);
   // 6. Learner level (multi-selection)
   const [learnerLevels, setLearnerLevels] = useState<string[]>([]);
+  // 7. Availability status ('available' | 'unavailable')
+  const [availability, setAvailability] = useState<'available' | 'unavailable'>('available');
+
+  useEffect(() => {
+    return () => {
+      if (localPhotoPreview) URL.revokeObjectURL(localPhotoPreview);
+    };
+  }, [localPhotoPreview]);
+
+  const effectiveAvatarUrl = localPhotoPreview || avatarUrl;
 
   // Publication state & ratings from Supabase
   const [isPublished, setIsPublished] = useState(false);
+  const [savedProfile, setSavedProfile] = useState<MentorProfileRecord | null>(null);
   const [ratingSummary, setRatingSummary] = useState<MentorRatingSummary | null>(null);
 
   // Load existing profile, verified competencies, and rating summary from Supabase
@@ -94,14 +116,18 @@ function MentorProfileContent({ user }: { user: User }) {
         if (summary) setRatingSummary(summary);
 
         if (profile) {
+          setSavedProfile(profile);
           setProfessionalTitle(profile.professionalTitle || '');
           setBio(profile.bio || '');
           setExperienceYears(profile.experienceYears || 0);
           setLearnerLevels(profile.learnerLevels || []);
-          if (profile.avatarUrl) setAvatarUrl(profile.avatarUrl);
+          setAvatarUrl((prev) => profile.avatarUrl ?? prev);
 
           const published = Boolean(profile.published || (profile.activated && profile.profileComplete));
           setIsPublished(published);
+          setAvailability(
+            published ? (profile.availability === 'unavailable' ? 'unavailable' : 'available') : 'available'
+          );
 
           // If profile is already complete/published, start in view mode (unless they have no title/bio yet)
           if (published && profile.professionalTitle && profile.bio) {
@@ -119,6 +145,7 @@ function MentorProfileContent({ user }: { user: User }) {
         } else {
           // New mentor completing profile for the first time
           setIsEditing(true);
+          setAvailability('available');
           if (competencies.length > 0) {
             setSelectedSkillIds(competencies.map((c) => c.skillId));
           }
@@ -192,6 +219,10 @@ function MentorProfileContent({ user }: { user: User }) {
       show('Experience years cannot be negative.', 'error');
       return;
     }
+    if (uploadingPhoto) {
+      show('Please wait for your profile photo upload to finish before saving.', 'error');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -201,7 +232,9 @@ function MentorProfileContent({ user }: { user: User }) {
         skillIds: selectedSkillIds,
         experienceYears: Number(experienceYears) || 0,
         learnerLevels,
-        avatarUrl: avatarUrl || undefined,
+        availability,
+        acceptingLearners: availability === 'available',
+        avatarUrl: avatarUrl ?? null,
         publish: true, // Mark published and complete
       });
 
@@ -210,8 +243,12 @@ function MentorProfileContent({ user }: { user: User }) {
         return;
       }
 
+      setSavedProfile(result.profile);
+      setAvatarUrl(result.profile.avatarUrl ?? null);
+      setAvailability(result.profile.availability === 'unavailable' ? 'unavailable' : 'available');
       setIsPublished(true);
       setIsEditing(false);
+      await refreshUser();
       show('Profile saved and published successfully!', 'success');
     } catch (err) {
       console.error('[MentorProfile] Error saving profile:', err);
@@ -268,9 +305,22 @@ function MentorProfileContent({ user }: { user: User }) {
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <p className="font-semibold text-emerald-300">Profile is Published & Live</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold text-emerald-300">Profile is Published & Live</p>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                      availability === 'unavailable'
+                        ? 'bg-red-950/70 text-red-300 border-red-800/70'
+                        : 'bg-emerald-950/70 text-emerald-300 border-emerald-800/70'
+                    }`}
+                  >
+                    {availability === 'unavailable' ? 'Unavailable' : 'Available'}
+                  </span>
+                </div>
                 <p className="text-xs text-ink-400 mt-0.5">
-                  Your profile is actively discoverable by learners in the SkillSphere directory.
+                  {availability === 'unavailable'
+                    ? 'Your profile remains published, but learners see that you are not accepting mentorship requests.'
+                    : 'Your profile is actively discoverable by learners and accepting mentorship requests.'}
                 </p>
               </div>
             </div>
@@ -299,10 +349,11 @@ function MentorProfileContent({ user }: { user: User }) {
               fullName={user.name}
               professionalHeadline={professionalTitle}
               biography={bio}
-              avatarUrl={avatarUrl}
+              avatarUrl={effectiveAvatarUrl}
               skills={previewSkills}
               experienceYears={experienceYears}
               learnerLevels={learnerLevels}
+              availability={availability}
               rating={ratingSummary?.averageRating || 0}
               reviewCount={ratingSummary?.totalReviews || 0}
               isPreview={false}
@@ -347,25 +398,46 @@ function MentorProfileContent({ user }: { user: User }) {
                 <ProfilePictureUpload
                   currentAvatarUrl={avatarUrl ?? undefined}
                   userName={user.name}
+                  autoUpload={true}
+                  onFileSelect={(file) => {
+                    setLocalPhotoPreview(file ? createAvatarPreview(file) : null);
+                  }}
                   onSave={async (file) => {
-                    const res = await uploadUserAvatar(user.id, file);
-                    if (res.success && res.avatarUrl) {
-                      setAvatarUrl(res.avatarUrl);
-                      show('Profile photo updated!', 'success');
-                    } else if (res.error) {
-                      show(res.error, 'error');
+                    setUploadingPhoto(true);
+                    try {
+                      const res = await uploadUserAvatar(user.id, file);
+                      if (res.success && res.avatarUrl) {
+                        setAvatarUrl(res.avatarUrl);
+                        setLocalPhotoPreview(null);
+                        await syncMentorProfileAvatar(user.id, res.avatarUrl);
+                        await refreshUser();
+                        show('Profile photo uploaded!', 'success');
+                      } else if (res.error) {
+                        setLocalPhotoPreview(null);
+                        show(res.error, 'error');
+                      }
+                      return res;
+                    } finally {
+                      setUploadingPhoto(false);
                     }
-                    return res;
                   }}
                   onRemove={async () => {
-                    const res = await removeUserAvatar(user.id);
-                    if (res.success) {
-                      setAvatarUrl(null);
-                      show('Profile photo removed.', 'info');
-                    } else if (res.error) {
-                      show(res.error, 'error');
+                    setUploadingPhoto(true);
+                    try {
+                      const res = await removeUserAvatar(user.id);
+                      if (res.success) {
+                        setAvatarUrl(null);
+                        setLocalPhotoPreview(null);
+                        await syncMentorProfileAvatar(user.id, null);
+                        await refreshUser();
+                        show('Profile photo removed.', 'info');
+                      } else if (res.error) {
+                        show(res.error, 'error');
+                      }
+                      return res;
+                    } finally {
+                      setUploadingPhoto(false);
                     }
-                    return res;
                   }}
                 />
               </div>
@@ -502,16 +574,69 @@ function MentorProfileContent({ user }: { user: User }) {
                 </div>
               </div>
 
+              {/* Field 7: Availability Status */}
+              <div className="space-y-2 pt-2 border-t border-ink-200">
+                <label className="block text-sm font-semibold text-ink">
+                  7. Availability *
+                </label>
+                <p className="text-xs text-ink-400">
+                  Control whether learners see you as accepting new mentorship requests.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setAvailability('available')}
+                    aria-pressed={availability === 'available'}
+                    className={`flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                      availability === 'available'
+                        ? 'bg-emerald-950/60 border-emerald-500 text-emerald-200 shadow-sm'
+                        : 'bg-ink-100/60 border-ink-200 text-ink-400 hover:border-brand-300'
+                    }`}
+                  >
+                    <Calendar
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        availability === 'available' ? 'text-emerald-400' : 'text-ink-300'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">Available</p>
+                      <p className="text-xs opacity-80 mt-0.5">Accepting mentorship requests</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAvailability('unavailable')}
+                    aria-pressed={availability === 'unavailable'}
+                    className={`flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                      availability === 'unavailable'
+                        ? 'bg-red-950/60 border-red-500 text-red-200 shadow-sm'
+                        : 'bg-ink-100/60 border-ink-200 text-ink-400 hover:border-brand-300'
+                    }`}
+                  >
+                    <XCircle
+                      className={`w-5 h-5 shrink-0 mt-0.5 ${
+                        availability === 'unavailable' ? 'text-red-400' : 'text-ink-300'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">Unavailable</p>
+                      <p className="text-xs opacity-80 mt-0.5">Not accepting new requests</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Form Action Buttons */}
               <div className="pt-6 border-t border-ink-200 flex items-center gap-3">
                 <Button
                   type="submit"
                   variant="primary"
                   size="lg"
-                  disabled={saving}
+                  disabled={saving || uploadingPhoto}
                   className="flex-1 sm:flex-none sm:min-w-[180px] bg-[#3770FF] hover:bg-[#2c5ad4] text-white"
                 >
-                  {saving ? 'Saving Profile...' : 'Save Profile'}
+                  {saving ? 'Saving Profile...' : uploadingPhoto ? 'Uploading Photo...' : 'Save Profile'}
                 </Button>
 
                 {isPublished && (
@@ -519,8 +644,18 @@ function MentorProfileContent({ user }: { user: User }) {
                     type="button"
                     variant="secondary"
                     size="lg"
-                    onClick={() => setIsEditing(false)}
-                    disabled={saving}
+                    onClick={() => {
+                      if (savedProfile) {
+                        setProfessionalTitle(savedProfile.professionalTitle || '');
+                        setBio(savedProfile.bio || '');
+                        setExperienceYears(savedProfile.experienceYears || 0);
+                        setLearnerLevels(savedProfile.learnerLevels || []);
+                        setSelectedSkillIds(savedProfile.skillIds || []);
+                        setAvailability(savedProfile.availability === 'unavailable' ? 'unavailable' : 'available');
+                      }
+                      setIsEditing(false);
+                    }}
+                    disabled={saving || uploadingPhoto}
                   >
                     Cancel
                   </Button>
@@ -540,10 +675,11 @@ function MentorProfileContent({ user }: { user: User }) {
               fullName={user.name}
               professionalHeadline={professionalTitle}
               biography={bio}
-              avatarUrl={avatarUrl}
+              avatarUrl={effectiveAvatarUrl}
               skills={previewSkills}
               experienceYears={experienceYears}
               learnerLevels={learnerLevels}
+              availability={availability}
               rating={ratingSummary?.averageRating || 0}
               reviewCount={ratingSummary?.totalReviews || 0}
               isPreview={false}

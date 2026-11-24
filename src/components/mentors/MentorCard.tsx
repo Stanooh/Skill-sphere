@@ -21,8 +21,14 @@ export function MentorCard({
   isSaved?: boolean;
   onSaveToggle?: () => void;
 }) {
+  const isUnavailable = mentor.profile.availability === 'unavailable';
+
   return (
-    <div className="card p-5 hover:shadow-card-hover transition-shadow duration-200 flex flex-col">
+    <div
+      className={`card p-5 hover:shadow-card-hover transition-shadow duration-200 flex flex-col ${
+        isUnavailable ? 'border-ink-200/70 opacity-90' : ''
+      }`}
+    >
       <div className="flex items-start gap-3 mb-4">
         <Avatar src={mentor.user.avatar} name={mentor.user.name} size="lg" />
         <div className="flex-1 min-w-0">
@@ -31,9 +37,11 @@ export function MentorCard({
           </Link>
           <p className="text-sm text-ink-400 truncate">{mentor.profile.professionalTitle}</p>
           <div className="flex items-center gap-3 mt-1 text-xs text-ink-400">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> {mentor.profile.location}
-            </span>
+            {mentor.profile.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> {mentor.profile.location}
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <Star className="w-3 h-3 text-amber-500 fill-amber-500" />{' '}
               {mentor.profile.reviewCount > 0
@@ -63,19 +71,21 @@ export function MentorCard({
 
       <div className="flex items-center gap-2 mb-4">
         {mentor.profile.availability === 'available' && (
-          <Badge variant="green"><Calendar className="w-3 h-3" /> Available this week</Badge>
+          <Badge variant="green"><Calendar className="w-3 h-3" /> Available • Accepting requests</Badge>
         )}
         {mentor.profile.availability === 'limited' && (
           <Badge variant="amber"><Calendar className="w-3 h-3" /> Limited availability</Badge>
         )}
-        {mentor.profile.availability === 'unavailable' && (
-          <Badge variant="red"><Calendar className="w-3 h-3" /> Currently unavailable</Badge>
+        {isUnavailable && (
+          <Badge variant="red"><Calendar className="w-3 h-3" /> Unavailable • Not accepting requests</Badge>
         )}
       </div>
 
       <div className="flex items-center gap-2 mt-auto">
         <Link href={`/mentors/${mentor.user.id}`} className="flex-1">
-          <Button variant="secondary" fullWidth>View Profile</Button>
+          <Button variant="secondary" fullWidth>
+            {isUnavailable ? 'View Profile (Unavailable)' : 'View Profile'}
+          </Button>
         </Link>
         <Link href={`/learner/messages?mentorId=${mentor.user.id}`} title="Message Mentor">
           <Button variant="ghost" className="px-2.5 text-ink-400 hover:text-brand" aria-label="Message Mentor">

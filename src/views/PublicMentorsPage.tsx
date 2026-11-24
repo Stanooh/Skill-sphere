@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Search, Star, MapPin, Calendar } from 'lucide-react';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
 import { getEligibleMentors } from '@/services/mentorProfileService';
 import type { Mentor } from '@/types';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
@@ -54,49 +54,58 @@ export function PublicMentorsPage() {
         <div className="card p-8 text-center text-ink-400">No mentors found. Try a different search.</div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((m) => (
-            <div key={m.user.id} className="card p-5 flex flex-col">
-              <div className="flex items-start gap-3 mb-4">
-                {m.user.avatar && (
-                  <Image
-                    src={m.user.avatar}
-                    alt={m.user.name}
-                    width={48}
-                    height={48}
-                    unoptimized
-                    className="w-12 h-12 rounded-full"
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-ink truncate">{m.user.name}</h3>
-                  <p className="text-sm text-ink-400 truncate">{m.profile.professionalTitle}</p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-ink-400">
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {m.profile.location}</span>
-                    <span className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />{' '}
-                      {m.profile.reviewCount > 0
-                        ? `${m.profile.rating.toFixed(1)} (${m.profile.reviewCount})`
-                        : 'No ratings yet'}
-                    </span>
+          {filtered.map((m) => {
+            const isUnavailable = m.profile.availability === 'unavailable';
+            return (
+              <div
+                key={m.user.id}
+                className={`card p-5 flex flex-col ${isUnavailable ? 'border-ink-200/70 opacity-90' : ''}`}
+              >
+                <div className="flex items-start gap-3 mb-4">
+                  <Avatar src={m.user.avatar} name={m.user.name} size="lg" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-ink truncate">{m.user.name}</h3>
+                    <p className="text-sm text-ink-400 truncate">{m.profile.professionalTitle}</p>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-ink-400">
+                      {m.profile.location && (
+                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {m.profile.location}</span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />{' '}
+                        {m.profile.reviewCount > 0
+                          ? `${m.profile.rating.toFixed(1)} (${m.profile.reviewCount})`
+                          : 'No ratings yet'}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <div className="mb-3"><PublicTrustIndicators mentorId={m.user.id} /></div>
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {m.skills.slice(0, 5).map((s) => (
+                    <Badge key={s.id} variant="gray">{s.name}</Badge>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mb-4">
+                  {m.profile.availability === 'available' && (
+                    <Badge variant="green"><Calendar className="w-3 h-3" /> Available • Accepting requests</Badge>
+                  )}
+                  {m.profile.availability === 'limited' && (
+                    <Badge variant="amber"><Calendar className="w-3 h-3" /> Limited availability</Badge>
+                  )}
+                  {isUnavailable && (
+                    <Badge variant="red"><Calendar className="w-3 h-3" /> Unavailable • Not accepting requests</Badge>
+                  )}
+                </div>
+                <div className="mt-auto">
+                  <Link href={`/mentors/${m.user.id}`}>
+                    <Button variant="secondary" fullWidth>
+                      {isUnavailable ? 'View Profile (Unavailable)' : 'View Profile'}
+                    </Button>
+                  </Link>
+                </div>
               </div>
-              <div className="mb-3"><PublicTrustIndicators mentorId={m.user.id} /></div>
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {m.skills.slice(0, 5).map((s) => (
-                  <Badge key={s.id} variant="gray">{s.name}</Badge>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 mb-4">
-                {m.profile.availability === 'available' && <Badge variant="green"><Calendar className="w-3 h-3" /> Available</Badge>}
-                {m.profile.availability === 'limited' && <Badge variant="amber"><Calendar className="w-3 h-3" /> Limited</Badge>}
-                {m.profile.availability === 'unavailable' && <Badge variant="red"><Calendar className="w-3 h-3" /> Unavailable</Badge>}
-              </div>
-              <div className="mt-auto">
-                <Link href={`/mentors/${m.user.id}`}><Button variant="secondary" fullWidth>Sign up to connect</Button></Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </PublicBrowseLayout>

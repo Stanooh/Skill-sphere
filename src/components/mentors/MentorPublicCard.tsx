@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { Avatar } from '@/components/ui/Avatar';
-import { CheckCircle2, Code2, Briefcase, Users, Star, Eye } from 'lucide-react';
+import type { Availability } from '@/types';
+import { CheckCircle2, Code2, Briefcase, Users, Star, Eye, Calendar, XCircle } from 'lucide-react';
 
 export interface MentorPublicCardProps {
   fullName: string;
@@ -12,6 +14,7 @@ export interface MentorPublicCardProps {
   skills: Array<{ id: string; name: string }>;
   experienceYears: number;
   learnerLevels: string[];
+  availability?: Availability;
   rating?: number;
   reviewCount?: number;
   isPreview?: boolean;
@@ -26,23 +29,29 @@ export function MentorPublicCard({
   skills,
   experienceYears,
   learnerLevels,
+  availability,
   rating = 0,
   reviewCount = 0,
   isPreview = false,
   className = '',
 }: MentorPublicCardProps) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showAvatarImage = Boolean(avatarUrl && failedSrc !== avatarUrl);
+
   // Format learner levels e.g. "Beginner – Intermediate"
   const formattedLevels =
     learnerLevels && learnerLevels.length > 0
       ? learnerLevels.join(' – ')
       : 'All levels';
 
+  const isUnavailable = availability === 'unavailable';
+
   return (
     <div className={`card p-6 sm:p-8 rounded-2xl bg-ink-800 border border-ink-200 shadow-sm max-w-2xl w-full ${className}`}>
       {/* Header: Photo + Name + Headline + Verified Badge */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
         <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 bg-ink-100 border border-ink-200">
-          {avatarUrl ? (
+          {showAvatarImage && avatarUrl ? (
             <Image
               src={avatarUrl}
               alt={fullName}
@@ -50,6 +59,7 @@ export function MentorPublicCard({
               className="object-cover"
               sizes="(max-width: 640px) 112px, 128px"
               unoptimized
+              onError={() => setFailedSrc(avatarUrl)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-ink-100">
@@ -65,9 +75,23 @@ export function MentorPublicCard({
           <p className={`text-base sm:text-lg font-medium mt-1 truncate ${professionalHeadline ? 'text-ink-400' : 'text-ink-300 italic'}`}>
             {professionalHeadline || 'Professional title not added yet'}
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e6f7ef] text-[#107544] text-xs sm:text-sm font-semibold border border-[#bbf0d6]">
-            <CheckCircle2 className="w-4 h-4 text-[#107544] fill-[#bbf0d6]" />
-            <span>Verified mentor</span>
+          <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e6f7ef] text-[#107544] text-xs sm:text-sm font-semibold border border-[#bbf0d6]">
+              <CheckCircle2 className="w-4 h-4 text-[#107544] fill-[#bbf0d6]" />
+              <span>Verified mentor</span>
+            </div>
+            {availability && (
+              <div
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold border ${
+                  isUnavailable
+                    ? 'bg-red-950/60 text-red-300 border-red-800/70'
+                    : 'bg-emerald-950/60 text-emerald-300 border-emerald-800/70'
+                }`}
+              >
+                {isUnavailable ? <XCircle className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
+                <span>{isUnavailable ? 'Unavailable' : 'Available'}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -133,6 +157,22 @@ export function MentorPublicCard({
             {reviewCount > 0 ? `${rating.toFixed(1)} (${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'})` : 'No ratings yet'}
           </span>
         </div>
+
+        {availability && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-ink-400 font-medium text-sm sm:text-base">
+              <Calendar className="w-5 h-5 text-ink-300 shrink-0" />
+              <span>Availability</span>
+            </div>
+            <span
+              className={`font-bold text-sm sm:text-base text-right ${
+                isUnavailable ? 'text-red-400' : 'text-emerald-400'
+              }`}
+            >
+              {isUnavailable ? 'Unavailable • Not accepting requests' : 'Available • Accepting requests'}
+            </span>
+          </div>
+        )}
       </div>
 
       {isPreview && (

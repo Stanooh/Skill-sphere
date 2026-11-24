@@ -208,7 +208,7 @@ export interface SaveMentorProfileInput {
   availability?: Availability;
   mentorshipAreas?: string[];
   skillIds: string[];
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   company?: string;
   workExperience?: WorkExperienceEntry[];
   educationHistory?: EducationEntry[];
@@ -279,11 +279,12 @@ export async function saveMentorProfile(
     }
   }
 
-  // Derive availability
+  // Derive availability & keep accepting_learners synchronized
   let availability: Availability = fields.availability ?? 'available';
   if (fields.acceptingLearners === false) {
     availability = 'unavailable';
   }
+  const acceptingLearners = fields.acceptingLearners ?? availability !== 'unavailable';
 
   const updateFields: Record<string, unknown> = {
     professional_title: fields.professionalTitle.trim(),
@@ -305,7 +306,7 @@ export async function saveMentorProfile(
     available_days: fields.availableDays ?? [],
     preferred_time_slots: fields.preferredTimeSlots ?? [],
     timezone: (fields.timezone ?? '').trim(),
-    accepting_learners: fields.acceptingLearners ?? true,
+    accepting_learners: acceptingLearners,
     linkedin_url: (fields.linkedinUrl ?? '').trim(),
     github_url: (fields.githubUrl ?? '').trim(),
     portfolio_url: (fields.portfolioUrl ?? '').trim(),
@@ -360,6 +361,21 @@ export async function saveMentorProfile(
   return { profile: mapProfile(data as DbMentorProfile) };
 }
 
+export async function syncMentorProfileAvatar(
+  userId: string,
+  avatarUrl: string | null
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('mentor_profiles')
+    .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+    .eq('user_id', userId);
+
+  if (error) {
+    reportError('sync avatar', error);
+  }
+}
+
 export async function getEligibleMentors(): Promise<Mentor[]> {
   const supabase = createClient();
   const [mentorsResult, skillsList] = await Promise.all([
@@ -369,7 +385,6 @@ export async function getEligibleMentors(): Promise<Mentor[]> {
       .eq('activated', true)
       .eq('profile_complete', true)
       .eq('published', true)
-      .neq('availability', 'unavailable')
       .order('rating', { ascending: false }),
     loadAllSkillsFromDb(),
   ]);
@@ -378,7 +393,14 @@ export async function getEligibleMentors(): Promise<Mentor[]> {
     reportError('load eligible mentors', mentorsResult.error);
     return [];
   }
-  return (mentorsResult.data as DbMentorProfile[]).map((row) => mapMentor(row, skillsList));
+
+  const priority: Record<Availability, number> = { available: 0, limited: 1, unavailable: 2 };
+  return (mentorsResult.data as DbMentorProfile[])
+    .map((row) => mapMentor(row, skillsList))
+    .sort((a, b) => {
+      const diff = priority[a.profile.availability] - priority[b.profile.availability];
+      return diff !== 0 ? diff : b.profile.rating - a.profile.rating;
+    });
 }
 
 export async function getEligibleMentor(idOrUserId: string): Promise<Mentor | null> {
@@ -490,10 +512,15 @@ export async function getRecommendedEligibleMentors(
       };
     })
     .filter((rec) => {
-      if (learnerSkillsSet.size === 0) return true; // show top-rated available mentors
+      if (learnerSkillsSet.size === 0) return true;
       return rec.matchingSkills.length > 0 && rec.matchPercentage > 0;
     })
-    .sort((a, b) => b.matchScore - a.matchScore);
+    .sort((a, b) => {
+      const aUnavailable = a.mentor.profile.availability === 'unavailable';
+      const bUnavailable = b.mentor.profile.availability === 'unavailable';
+      if (aUnavailable !== bUnavailable) return aUnavailable ? 1 : -1;
+      return b.matchScore - a.matchScore;
+    });
 
   return recommendations;
 }

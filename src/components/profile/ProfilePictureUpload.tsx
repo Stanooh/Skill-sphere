@@ -14,6 +14,7 @@ interface ProfilePictureUploadProps {
   onRemove?: () => Promise<{ success: boolean; error?: string }>;
   disabled?: boolean;
   showSaveButton?: boolean;
+  autoUpload?: boolean;
 }
 
 export function ProfilePictureUpload({
@@ -24,6 +25,7 @@ export function ProfilePictureUpload({
   onRemove,
   disabled = false,
   showSaveButton = false,
+  autoUpload = false,
 }: ProfilePictureUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function ProfilePictureUpload({
     };
   }, [selectedPreviewUrl]);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,6 +59,22 @@ export function ProfilePictureUpload({
 
     if (onFileSelect) {
       onFileSelect(file);
+    }
+
+    if (autoUpload && onSave) {
+      setIsUploading(true);
+      try {
+        const res = await onSave(file);
+        if (!res.success) {
+          setError(res.error || 'Failed to upload profile picture.');
+        } else {
+          setSelectedFile(null);
+          setSelectedPreviewUrl(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -154,7 +172,7 @@ export function ProfilePictureUpload({
               disabled={disabled || isUploading}
             >
               <Upload className="w-4 h-4 mr-1.5" />
-              {previewUrl ? 'Change Picture' : 'Upload Picture'}
+              {isUploading ? 'Uploading...' : previewUrl ? 'Change Picture' : 'Upload Picture'}
             </Button>
 
             {(previewUrl || selectedFile) && (

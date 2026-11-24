@@ -93,11 +93,16 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
   };
 
   const handleRequestClick = () => {
+    if (mentor?.profile.availability === 'unavailable') return;
     setRequestOpen(true);
   };
 
   const handleRequest = () => {
     if (!user || user.role !== 'learner' || user.id === id) return;
+    if (mentor?.profile.availability === 'unavailable') {
+      show('This mentor is currently unavailable and not accepting mentorship requests.', 'error');
+      return;
+    }
     if (!sessionTitle || !sessionDate) {
       show('Please fill in the session title and date.', 'error');
       return;
@@ -139,6 +144,7 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
             skills={mentor.skills}
             experienceYears={mentor.profile.experienceYears}
             learnerLevels={mentor.profile.learnerLevels || []}
+            availability={mentor.profile.availability}
             rating={ratingSummary ? ratingSummary.averageRating : mentor.profile.rating}
             reviewCount={ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount}
           />
@@ -335,9 +341,15 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
         <div className="space-y-4">
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
-              {mentor.profile.availability === 'available' && <Badge variant="green"><Calendar className="w-3 h-3" /> Available this week</Badge>}
-              {mentor.profile.availability === 'limited' && <Badge variant="amber"><Calendar className="w-3 h-3" /> Limited availability</Badge>}
-              {mentor.profile.availability === 'unavailable' && <Badge variant="red"><Calendar className="w-3 h-3" /> Unavailable</Badge>}
+              {mentor.profile.availability === 'available' && (
+                <Badge variant="green"><Calendar className="w-3 h-3" /> Available • Accepting requests</Badge>
+              )}
+              {mentor.profile.availability === 'limited' && (
+                <Badge variant="amber"><Calendar className="w-3 h-3" /> Limited availability</Badge>
+              )}
+              {mentor.profile.availability === 'unavailable' && (
+                <Badge variant="red"><Calendar className="w-3 h-3" /> Unavailable • Not accepting requests</Badge>
+              )}
             </div>
             <Button
               fullWidth
@@ -345,8 +357,13 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
               onClick={handleRequestClick}
               disabled={mentor.profile.availability === 'unavailable' || (!!user && (user.role !== 'learner' || user.id === id))}
             >
-              Request Mentorship
+              {mentor.profile.availability === 'unavailable' ? 'Currently Unavailable' : 'Request Mentorship'}
             </Button>
+            {mentor.profile.availability === 'unavailable' && (
+              <p className="text-xs text-red-400 mt-2.5 text-center">
+                This mentor is not currently accepting mentorship requests.
+              </p>
+            )}
             {user?.role === 'learner' && (
               <Button variant="secondary" fullWidth className="mt-3" onClick={handleSaveToggle}>
                 <Bookmark className={`w-4 h-4 ${saved ? 'fill-brand text-brand' : ''}`} />
