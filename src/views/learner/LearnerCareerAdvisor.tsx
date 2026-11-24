@@ -15,8 +15,10 @@ import type { CareerAdvisorMessage, LearnerContext } from '@/types';
 import {
   getWelcomeMessage,
 } from '@/services/ai/careerAdvisorService';
-import { askCareerAdvisor } from '@/services/ai/aiFeatureClient';
-import { getLearnerProfile, getSkillsByIds, getRoadmap, getProgress } from '@/services/dataService';
+import { askCareerAdvisor, getAiRoadmaps } from '@/services/ai/aiFeatureClient';
+import { getSkillsByIds } from '@/services/dataService';
+import { createClient } from '@/lib/supabase/client';
+import type { SkillLevel } from '@/types';
 
 const suggestedQuestions = [
   'What should I learn next?',
@@ -37,6 +39,16 @@ export function LearnerCareerAdvisorPage() {
   const [messages, setMessages] = useState<CareerAdvisorMessage[]>(() =>
     user ? [getWelcomeMessage(user.name)] : []
   );
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [supabaseProfile, setSupabaseProfile] = useState<{
+    profileComplete: boolean;
+    skillIds: string[];
+    skillLevels: Record<string, SkillLevel>;
+    learningGoal: string;
+    targetTimeframe: string;
+    availableHoursPerWeek: number;
+  } | null>(null);
+  const [latestRoadmapGoal, setLatestRoadmapGoal] = useState<string | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,21 +60,55 @@ export function LearnerCareerAdvisorPage() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    void fetch('/api/ai/career-conversations')
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Could not load conversations.')))
-      .then((result: { conversations: Array<{ id: string; career_messages: Array<{ role: 'user' | 'assistant'; content: string; created_at: string }> }> }) => {
-        if (!active) return;
-        const latest = result.conversations[0];
-        if (!latest) return;
+    const supabase = createClient();
+
+    void Promise.all([
+      supabase
+        .from('learner_profiles')
+        .select('profile_complete, skill_ids, skill_levels, learning_goal, target_timeframe, available_hours_per_week')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      getAiRoadmaps(),
+      fetch('/api/ai/career-conversations')
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null),
+    ]).then(([lpRes, roadmaps, convResult]) => {
+      if (!active) return;
+
+      const lp = lpRes.data;
+      if (lp) {
+        const skillIds = Array.isArray(lp.skill_ids) ? (lp.skill_ids as string[]) : [];
+        setSupabaseProfile({
+          profileComplete: Boolean(lp.profile_complete) || skillIds.length > 0 || Boolean(lp.learning_goal),
+          skillIds,
+          skillLevels: (lp.skill_levels as Record<string, SkillLevel>) ?? {},
+          learningGoal: (lp.learning_goal as string) || 'Not set yet',
+          targetTimeframe: (lp.target_timeframe as string) || 'Not set',
+          availableHoursPerWeek: Number(lp.available_hours_per_week) || 0,
+        });
+      }
+      setProfileLoading(false);
+
+      if (roadmaps.length > 0) {
+        setLatestRoadmapGoal(roadmaps[0].careerPath);
+      }
+
+      const latest = (convResult as {
+        conversations?: Array<{ id: string; career_messages: Array<{ role: 'user' | 'assistant'; content: string; created_at: string }> }>;
+      } | null)?.conversations?.[0];
+      if (latest) {
         setConversationId(latest.id);
-        setMessages(latest.career_messages.map((message, index) => ({
-          id: `${latest.id}-${index}`,
-          role: message.role,
-          content: message.content,
-          createdAt: message.created_at,
-        })));
-      })
-      .catch(() => undefined);
+        setMessages(
+          latest.career_messages.map((message, index) => ({
+            id: `${latest.id}-${index}`,
+            role: message.role,
+            content: message.content,
+            createdAt: message.created_at,
+          }))
+        );
+      }
+    });
+
     return () => {
       active = false;
     };
@@ -70,22 +116,19 @@ export function LearnerCareerAdvisorPage() {
 
   if (!user) return null;
 
-  const profile = getLearnerProfile(user.id);
-  const skills = profile ? getSkillsByIds(profile.skillIds) : [];
-  const roadmap = getRoadmap(user.id);
-  const progress = getProgress(user.id);
+  const skills = supabaseProfile ? getSkillsByIds(supabaseProfile.skillIds) : [];
 
   const context: LearnerContext = {
     name: user.name,
-    skills: skills.map((s) => ({ name: s.name, level: profile?.skillLevels[s.id] ?? 'beginner' })),
-    learningGoal: profile?.learningGoal ?? 'Not set yet',
-    targetTimeframe: profile?.targetTimeframe ?? 'Not set',
-    availableHoursPerWeek: profile?.availableHoursPerWeek ?? 0,
-    roadmapGoal: roadmap?.goal,
-    roadmapProgress: progress.percentage,
+    skills: skills.map((s) => ({ name: s.name, level: supabaseProfile?.skillLevels[s.id] ?? 'beginner' })),
+    learningGoal: supabaseProfile?.learningGoal ?? 'Not set yet',
+    targetTimeframe: supabaseProfile?.targetTimeframe ?? 'Not set',
+    availableHoursPerWeek: supabaseProfile?.availableHoursPerWeek ?? 0,
+    roadmapGoal: latestRoadmapGoal,
+    roadmapProgress: undefined,
   };
 
-  const profileComplete = profile?.profileComplete ?? false;
+  const profileComplete = supabaseProfile?.profileComplete ?? false;
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
@@ -132,7 +175,9 @@ export function LearnerCareerAdvisorPage() {
         }
       />
 
-      {!profileComplete ? (
+      {profileLoading ? (
+        <div className="card p-12 text-center text-sm text-ink-300">Loading your career profile...</div>
+      ) : !profileComplete ? (
         <div className="card">
           <EmptyState
             icon={<UserCircle className="w-6 h-6" />}
@@ -144,8 +189,8 @@ export function LearnerCareerAdvisorPage() {
       ) : (
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Chat */}
-          <div className="lg:col-span-2">
-            <div className="card flex flex-col h-[600px]">
+          <div className="lg:col-span-2 min-w-0">
+            <div className="card flex flex-col h-[calc(100dvh-15rem)] min-h-[420px] lg:h-[600px]">
               {/* Messages */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-4">
                 {messages.map((msg) => (
@@ -251,7 +296,7 @@ export function LearnerCareerAdvisorPage() {
                     {skills.map((s) => (
                       <div key={s.id} className="flex items-center justify-between text-sm">
                         <span className="text-ink-600">{s.name}</span>
-                        <Badge variant="outline">{profile?.skillLevels[s.id] ?? 'beginner'}</Badge>
+                        <Badge variant="outline">{supabaseProfile?.skillLevels[s.id] ?? 'beginner'}</Badge>
                       </div>
                     ))}
                   </div>
@@ -260,13 +305,10 @@ export function LearnerCareerAdvisorPage() {
                   <span className="text-sm text-ink-400 flex items-center gap-1.5"><Clock className="w-4 h-4" /> Hours/week</span>
                   <span className="text-sm font-medium text-ink">{context.availableHoursPerWeek}h</span>
                 </div>
-                {roadmap && (
+                {latestRoadmapGoal && (
                   <div className="pt-3 border-t border-ink-50">
-                    <p className="text-xs font-medium text-ink-400 uppercase tracking-wider mb-1.5">Roadmap Progress</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-ink-600">{roadmap.goal}</span>
-                      <span className="text-sm font-semibold text-brand">{progress.percentage}%</span>
-                    </div>
+                    <p className="text-xs font-medium text-ink-400 uppercase tracking-wider mb-1.5">Active Roadmap</p>
+                    <span className="text-sm text-ink-600">{latestRoadmapGoal}</span>
                   </div>
                 )}
               </div>

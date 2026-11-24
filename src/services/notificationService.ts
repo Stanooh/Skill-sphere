@@ -91,3 +91,26 @@ export function subscribeToNotifications(userId: string, onChange: () => void): 
     void supabase.removeChannel(channel);
   };
 }
+
+export async function createNotification(input: {
+  userId: string;
+  type: 'mentorship_request' | 'session_accepted' | 'session_declined' | 'mentor_review_received' | 'message_received';
+  title: string;
+  message: string;
+  entityId?: string;
+}): Promise<string | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('create_notification', {
+    p_user_id: input.userId,
+    p_type: input.type,
+    p_title: input.title,
+    p_message: input.message,
+    p_entity_id: input.entityId ?? null,
+  });
+
+  if (error) {
+    reportError('create notification', error);
+    return null;
+  }
+  return typeof data === 'string' ? data : null;
+}

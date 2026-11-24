@@ -44,7 +44,6 @@ interface NavItem {
 
 const learnerNav: NavItem[] = [
   { to: '/learner', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-  { to: '/notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" /> },
   { to: '/learner/messages', label: 'Messages', icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { to: '/learner/mentors', label: 'Find Mentors', icon: <Compass className="w-[18px] h-[18px]" /> },
   { to: '/learner/saved', label: 'Saved Mentors', icon: <Bookmark className="w-[18px] h-[18px]" /> },
@@ -59,7 +58,6 @@ const learnerNav: NavItem[] = [
 
 const mentorNav: NavItem[] = [
   { to: '/mentor', label: 'Dashboard', icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-  { to: '/notifications', label: 'Notifications', icon: <Bell className="w-[18px] h-[18px]" /> },
   { to: '/mentor/messages', label: 'Messages', icon: <MessageSquare className="w-[18px] h-[18px]" /> },
   { to: '/mentor/requests', label: 'Mentorship Requests', icon: <ClipboardList className="w-[18px] h-[18px]" /> },
   { to: '/mentor/sessions', label: 'Sessions', icon: <CalendarDays className="w-[18px] h-[18px]" /> },

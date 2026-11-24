@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -13,12 +13,11 @@ import { Sparkles, Check, ArrowRight, ArrowLeft, Compass, BookOpen, MessageSquar
 import type { SkillLevel, LearningRoadmap, MilestoneStatus } from '@/types';
 import {
   getCareerPaths,
-  getAIRoadmap,
-  toggleMilestoneComplete,
   getRoadmapProgress,
 } from '@/services/ai/roadmapService';
-import { generateAiRoadmap } from '@/services/ai/aiFeatureClient';
-import { getLearnerProfile, getSkills } from '@/services/dataService';
+import { generateAiRoadmap, getAiRoadmaps } from '@/services/ai/aiFeatureClient';
+import { getSkills } from '@/services/dataService';
+import { createClient } from '@/lib/supabase/client';
 
 const steps = ['Career Path', 'Current Skills', 'Skill Level', 'Interests', 'Availability', 'Timeline'];
 
@@ -37,19 +36,45 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
   const [generating, setGenerating] = useState(false);
   const [genStep, setGenStep] = useState(0);
   const [generatedRoadmap, setGeneratedRoadmap] = useState<LearningRoadmap | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [existingRoadmap, setExistingRoadmap] = useState<LearningRoadmap | null>(null);
 
-  const profile = getLearnerProfile(userId);
   const allSkills = getSkills();
   const careerPaths = getCareerPaths();
-  const existingRoadmap = getAIRoadmap();
 
   const [careerPath, setCareerPath] = useState('');
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(profile?.skillIds ?? []);
-  const [skillLevels, setSkillLevels] = useState<Record<string, SkillLevel>>(profile?.skillLevels ?? {});
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [skillLevels, setSkillLevels] = useState<Record<string, SkillLevel>>({});
   const [interests, setInterests] = useState<string[]>([]);
-  const [hoursPerWeek, setHoursPerWeek] = useState(profile?.availableHoursPerWeek ?? 10);
-  const [targetTimeline, setTargetTimeline] = useState(profile?.targetTimeframe ?? '6 months');
+  const [hoursPerWeek, setHoursPerWeek] = useState(10);
+  const [targetTimeline, setTargetTimeline] = useState('6 months');
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+    void Promise.all([
+      supabase
+        .from('learner_profiles')
+        .select('skill_ids, skill_levels, available_hours_per_week, target_timeframe')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      getAiRoadmaps(),
+    ]).then(([lpRes, roadmaps]) => {
+      if (!active) return;
+      const lp = lpRes.data;
+      if (lp) {
+        if (Array.isArray(lp.skill_ids)) setSelectedSkills(lp.skill_ids as string[]);
+        if (lp.skill_levels) setSkillLevels(lp.skill_levels as Record<string, SkillLevel>);
+        if (lp.available_hours_per_week) setHoursPerWeek(Number(lp.available_hours_per_week));
+        if (lp.target_timeframe) setTargetTimeline(lp.target_timeframe as string);
+      }
+      if (roadmaps.length > 0) {
+        setExistingRoadmap(roadmaps[0]);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   const canProceed = () => {
     if (step === 0) return !!careerPath;
@@ -92,23 +117,32 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
 
   const handleToggleMilestone = async (phaseId: string, milestoneId: string) => {
     if (!generatedRoadmap) return;
-    const updated = toggleMilestoneComplete(generatedRoadmap.id, phaseId, milestoneId);
-    if (updated) {
-      setGeneratedRoadmap(updated);
-      setRefreshKey((k) => k + 1);
-      void fetch(`/api/ai/roadmaps/${generatedRoadmap.id}/progress`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stageId: phaseId,
-          itemId: milestoneId,
-          itemType: 'milestone',
-          completed: updated.phases
-            .find((phase) => phase.id === phaseId)
-            ?.milestones.find((milestone) => milestone.id === milestoneId)?.status === 'completed',
-        }),
-      });
-    }
+    let nextCompleted = false;
+    const updated: LearningRoadmap = {
+      ...generatedRoadmap,
+      phases: generatedRoadmap.phases.map((phase) => {
+        if (phase.id !== phaseId) return phase;
+        return {
+          ...phase,
+          milestones: phase.milestones.map((m) => {
+            if (m.id !== milestoneId) return m;
+            nextCompleted = m.status !== 'completed';
+            return { ...m, status: nextCompleted ? 'completed' : 'available' };
+          }),
+        };
+      }),
+    };
+    setGeneratedRoadmap(updated);
+    void fetch(`/api/ai/roadmaps/${generatedRoadmap.id}/progress`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stageId: phaseId,
+        itemId: milestoneId,
+        itemType: 'milestone',
+        completed: nextCompleted,
+      }),
+    });
   };
 
   // Generation loading screen
@@ -151,7 +185,7 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
   // Generated roadmap display
   if (generatedRoadmap) {
     return (
-      <DashboardLayout key={refreshKey}>
+      <DashboardLayout>
         <PageHeader
           title={`${generatedRoadmap.careerPath} Roadmap`}
           description={`Personalized for ${userName.split(' ')[0]} • ${generatedRoadmap.targetTimeline} • ${generatedRoadmap.hoursPerWeek}h/week`}
@@ -218,7 +252,7 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-3 pt-4 border-t border-ink-50">
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-ink-50">
                 {phase.milestones[0].status !== 'locked' && (
                   <Button
                     size="sm"
@@ -255,12 +289,12 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
       <PageHeader title="AI Learning Roadmap" description="Generate a personalized learning plan based on your career path and current skills." />
 
       {existingRoadmap && !generatedRoadmap && (
-        <div className="card p-4 mb-6 flex items-center justify-between">
+        <div className="card p-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-ink">You have an existing AI roadmap for {existingRoadmap.careerPath}</p>
             <p className="text-xs text-ink-400">Generating a new one will replace it.</p>
           </div>
-          <Button size="sm" variant="secondary" onClick={() => setGeneratedRoadmap(existingRoadmap)}>View Existing</Button>
+          <Button size="sm" variant="secondary" className="self-start sm:self-auto shrink-0" onClick={() => setGeneratedRoadmap(existingRoadmap)}>View Existing</Button>
         </div>
       )}
 

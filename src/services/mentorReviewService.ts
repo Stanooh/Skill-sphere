@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { createNotification } from '@/services/notificationService';
 import type { MentorReview, MentorRatingSummary, RatingEligibility } from '@/types';
 
 type DbReviewRow = {
@@ -214,13 +215,12 @@ export async function submitMentorReview(input: {
 
   // Send notification to mentor about new or updated rating
   try {
-    await supabase.from('notifications').insert({
-      user_id: input.mentorId,
-      notification_type: 'mentor_review_received',
+    await createNotification({
+      userId: input.mentorId,
+      type: 'mentor_review_received',
       title: 'New Rating & Review',
       message: `${savedReview.learnerName} gave you a ${ratingInt}-star rating${reviewText ? `: "${reviewText.slice(0, 70)}..."` : '.'}`,
-      event_key: `review_${savedReview.id}`,
-      read: false,
+      entityId: savedReview.id,
     });
   } catch {
     // Non-blocking

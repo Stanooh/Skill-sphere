@@ -9,8 +9,7 @@ import { EmptyState } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
 import { Bookmark } from 'lucide-react';
 import Link from 'next/link';
-import { getSavedMentors, unsaveMentor } from '@/services/savedMentorService';
-import { getMentor } from '@/services/dataService';
+import { getSavedMentorProfiles, unsaveMentor } from '@/services/savedMentorService';
 import type { Mentor } from '@/types';
 
 export function LearnerSavedPage() {
@@ -21,13 +20,16 @@ export function LearnerSavedPage() {
 
   const loadSaved = useCallback(async () => {
     if (!user) return;
-    const records = await getSavedMentors(user.id);
-    const mentors = records
-      .map((s) => getMentor(s.mentorId))
-      .filter((m): m is NonNullable<typeof m> => m !== undefined);
-    setSavedMentors(mentors);
-    setLoading(false);
-  }, [user]);
+    try {
+      const mentors = await getSavedMentorProfiles(user.id);
+      setSavedMentors(mentors);
+    } catch (err) {
+      console.error(err);
+      show('Failed to load saved mentors.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, show]);
 
   useEffect(() => {
     let active = true;
@@ -43,12 +45,14 @@ export function LearnerSavedPage() {
   if (!user) return null;
 
   const handleUnsave = async (mentorId: string) => {
+    const previous = savedMentors;
+    setSavedMentors((curr) => curr.filter((m) => m.user.id !== mentorId));
     try {
       await unsaveMentor(user.id, mentorId);
       show('Mentor removed from saved.', 'info');
-      await loadSaved();
     } catch (err) {
       console.error(err);
+      setSavedMentors(previous);
       show('Failed to remove saved mentor.', 'error');
     }
   };

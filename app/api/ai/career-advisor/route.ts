@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { createGeminiClient, getGeminiModel, geminiErrorMessage } from '@/lib/gemini';
+import { createGeminiClient, generateContentWithFallback, geminiErrorMessage } from '@/lib/gemini';
 
 const requestSchema = z.object({
   conversationId: z.string().uuid().optional(),
@@ -105,8 +105,7 @@ export async function POST(request: Request) {
 
   try {
     const ai = createGeminiClient();
-    const result = await ai.models.generateContent({
-      model: getGeminiModel(),
+    const result = await generateContentWithFallback(ai, {
       contents: prompt,
       config: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
     });

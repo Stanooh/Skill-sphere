@@ -18,10 +18,14 @@ import {
   isMentorSaved,
   saveMentor,
   unsaveMentor,
-  createSession,
-} from '@/services/dataService';
+} from '@/services/savedMentorService';
+import {
+  getActiveSessionWithMentor,
+  requestSession,
+  updateSessionStatus,
+} from '@/services/sessionService';
 import { getEligibleMentor } from '@/services/mentorProfileService';
-import type { Mentor } from '@/types';
+import type { Mentor, Session } from '@/types';
 
 export function LearnerMentorDetailPage({ publicView = false }: { publicView?: boolean }) {
   const params = useParams<{ id: string }>();
@@ -33,9 +37,12 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
   const [requestOpen, setRequestOpen] = useState(
     publicView && searchParams.get('request') === '1'
   );
-  const [refreshKey, setRefreshKey] = useState(0);
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
+  const [savingBookmark, setSavingBookmark] = useState(false);
+  const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
   const [ratingSummary, setRatingSummary] = useState<{ averageRating: number; totalReviews: number } | null>(null);
 
   const [sessionTitle, setSessionTitle] = useState('');
@@ -46,16 +53,23 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
   useEffect(() => {
     if (!id) return;
     let active = true;
-    void getEligibleMentor(id).then((nextMentor) => {
-      if (active) {
-        setMentor(nextMentor);
-        setLoading(false);
-      }
-    });
+    const load = async () => {
+      const [nextMentor, isSaved, existingSession] = await Promise.all([
+        getEligibleMentor(id),
+        user?.role === 'learner' ? isMentorSaved(user.id, id) : Promise.resolve(false),
+        user?.role === 'learner' ? getActiveSessionWithMentor(user.id, id) : Promise.resolve(null),
+      ]);
+      if (!active) return;
+      setMentor(nextMentor);
+      setSaved(isSaved);
+      setActiveSession(existingSession);
+      setLoading(false);
+    };
+    void load();
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, user]);
 
   if ((!publicView && !user) || !id) return null;
 
@@ -78,54 +92,87 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
       : <DashboardLayout>{notFound}</DashboardLayout>;
   }
 
-  const saved = user ? isMentorSaved(user.id, id) : false;
-
-  const handleSaveToggle = () => {
-    if (!user || user.role !== 'learner') return;
-    if (saved) {
-      unsaveMentor(user.id, id);
-      show('Mentor removed from saved.', 'info');
-    } else {
-      saveMentor(user.id, id);
-      show('Mentor saved!', 'success');
+  const handleSaveToggle = async () => {
+    if (!user || user.role !== 'learner' || savingBookmark) return;
+    setSavingBookmark(true);
+    const wasSaved = saved;
+    setSaved(!wasSaved);
+    try {
+      if (wasSaved) {
+        await unsaveMentor(user.id, id);
+        show('Mentor removed from saved.', 'info');
+      } else {
+        await saveMentor(user.id, id);
+        show('Mentor saved!', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      setSaved(wasSaved);
+      show('Failed to update saved mentors.', 'error');
+    } finally {
+      setSavingBookmark(false);
     }
-    setRefreshKey((k) => k + 1);
   };
 
   const handleRequestClick = () => {
     if (mentor?.profile.availability === 'unavailable') return;
+    if (activeSession) return;
     setRequestOpen(true);
   };
 
-  const handleRequest = () => {
-    if (!user || user.role !== 'learner' || user.id === id) return;
+  const handleCancelActiveRequest = async () => {
+    if (!activeSession || activeSession.status !== 'pending') return;
+    setSubmittingRequest(true);
+    try {
+      await updateSessionStatus(activeSession.id, 'cancelled');
+      setActiveSession(null);
+      show('Mentorship request cancelled.', 'info');
+    } catch (err) {
+      console.error(err);
+      show('Failed to cancel request.', 'error');
+    } finally {
+      setSubmittingRequest(false);
+    }
+  };
+
+  const handleRequest = async () => {
+    if (!user || user.role !== 'learner' || user.id === id || submittingRequest) return;
     if (mentor?.profile.availability === 'unavailable') {
       show('This mentor is currently unavailable and not accepting mentorship requests.', 'error');
       return;
     }
-    if (!sessionTitle || !sessionDate) {
+    if (!sessionTitle.trim() || !sessionDate) {
       show('Please fill in the session title and date.', 'error');
       return;
     }
-    createSession({
-      learnerId: user.id,
-      mentorId: id,
-      title: sessionTitle,
-      description: sessionDesc,
-      scheduledDate: new Date(sessionDate).toISOString(),
-      durationMinutes: Number(sessionDuration),
-      status: 'pending',
-    });
-    show('Mentorship request sent!', 'success');
-    setRequestOpen(false);
-    setSessionTitle('');
-    setSessionDesc('');
-    setSessionDate('');
-    router.push('/learner/sessions');
+    setSubmittingRequest(true);
+    try {
+      const created = await requestSession({
+        learnerId: user.id,
+        mentorId: id,
+        title: sessionTitle.trim(),
+        description: sessionDesc.trim(),
+        scheduledDate: new Date(sessionDate).toISOString(),
+        durationMinutes: Number(sessionDuration),
+        learnerName: user.name,
+      });
+      setActiveSession(created);
+      show('Mentorship request sent!', 'success');
+      setRequestOpen(false);
+      setSessionTitle('');
+      setSessionDesc('');
+      setSessionDate('');
+      router.push('/learner/sessions');
+    } catch (err) {
+      console.error(err);
+      show(err instanceof Error ? err.message : 'Could not send mentorship request.', 'error');
+    } finally {
+      setSubmittingRequest(false);
+    }
   };
 
   const detailContent = (
-    <div key={refreshKey}>
+    <div>
       <div className="mb-4">
         <Link href={publicView ? '/mentors' : '/learner/mentors'} className="text-sm text-ink-400 hover:text-brand-700 flex items-center gap-1">
           ← Back to mentors
@@ -355,17 +402,48 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
               fullWidth
               size="lg"
               onClick={handleRequestClick}
-              disabled={mentor.profile.availability === 'unavailable' || (!!user && (user.role !== 'learner' || user.id === id))}
+              disabled={
+                mentor.profile.availability === 'unavailable' ||
+                !!activeSession ||
+                (!!user && (user.role !== 'learner' || user.id === id))
+              }
             >
-              {mentor.profile.availability === 'unavailable' ? 'Currently Unavailable' : 'Request Mentorship'}
+              {mentor.profile.availability === 'unavailable'
+                ? 'Currently Unavailable'
+                : activeSession?.status === 'pending'
+                ? 'Request Pending'
+                : activeSession?.status === 'accepted'
+                ? 'Mentorship Accepted'
+                : 'Request Mentorship'}
             </Button>
+            {activeSession?.status === 'pending' && (
+              <div className="mt-2.5 space-y-2 text-center">
+                <p className="text-xs text-amber-400">
+                  Your mentorship request is pending mentor review.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  fullWidth
+                  disabled={submittingRequest}
+                  onClick={handleCancelActiveRequest}
+                >
+                  Cancel Pending Request
+                </Button>
+              </div>
+            )}
+            {activeSession?.status === 'accepted' && (
+              <p className="text-xs text-emerald-400 mt-2.5 text-center">
+                Your mentorship request was accepted. You can rate this mentor below!
+              </p>
+            )}
             {mentor.profile.availability === 'unavailable' && (
               <p className="text-xs text-red-400 mt-2.5 text-center">
                 This mentor is not currently accepting mentorship requests.
               </p>
             )}
             {user?.role === 'learner' && (
-              <Button variant="secondary" fullWidth className="mt-3" onClick={handleSaveToggle}>
+              <Button variant="secondary" fullWidth className="mt-3" disabled={savingBookmark} onClick={handleSaveToggle}>
                 <Bookmark className={`w-4 h-4 ${saved ? 'fill-brand text-brand' : ''}`} />
                 {saved ? 'Saved' : 'Save Mentor'}
               </Button>
@@ -418,8 +496,10 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
               <option value="120">2 hours</option>
             </Select>
             <div className="flex gap-3 pt-2">
-              <Button variant="secondary" fullWidth onClick={() => setRequestOpen(false)}>Cancel</Button>
-              <Button fullWidth onClick={handleRequest}>Send Request</Button>
+              <Button variant="secondary" fullWidth disabled={submittingRequest} onClick={() => setRequestOpen(false)}>Cancel</Button>
+              <Button fullWidth disabled={submittingRequest} onClick={handleRequest}>
+                {submittingRequest ? 'Sending...' : 'Send Request'}
+              </Button>
             </div>
           </div>
         )}
@@ -429,5 +509,5 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
 
   return publicView
     ? <PublicBrowseLayout title="Mentor Profile">{detailContent}</PublicBrowseLayout>
-    : <DashboardLayout key={refreshKey}>{detailContent}</DashboardLayout>;
+    : <DashboardLayout>{detailContent}</DashboardLayout>;
 }

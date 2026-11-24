@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
-import type { SavedMentor } from '@/types';
+import { getEligibleMentors } from '@/services/mentorProfileService';
+import type { Mentor, SavedMentor } from '@/types';
 
 type DbSavedMentor = {
   id: string;
@@ -32,6 +33,23 @@ export async function getSavedMentors(learnerId: string): Promise<SavedMentor[]>
   return (data as DbSavedMentor[]).map(mapSavedMentor);
 }
 
+export async function getSavedMentorIds(learnerId: string): Promise<string[]> {
+  const records = await getSavedMentors(learnerId);
+  return records.map((r) => r.mentorId);
+}
+
+export async function getSavedMentorProfiles(learnerId: string): Promise<Mentor[]> {
+  const [records, eligibleMentors] = await Promise.all([
+    getSavedMentors(learnerId),
+    getEligibleMentors(),
+  ]);
+  if (records.length === 0) return [];
+  const byId = new Map(eligibleMentors.map((m) => [m.user.id, m]));
+  return records
+    .map((r) => byId.get(r.mentorId))
+    .filter((m): m is Mentor => m !== undefined);
+}
+
 export async function isMentorSaved(learnerId: string, mentorId: string): Promise<boolean> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -49,10 +67,13 @@ export async function saveMentor(learnerId: string, mentorId: string): Promise<S
   const supabase = createClient();
   const { data, error } = await supabase
     .from('saved_mentors')
-    .insert({
-      learner_id: learnerId,
-      mentor_id: mentorId,
-    })
+    .upsert(
+      {
+        learner_id: learnerId,
+        mentor_id: mentorId,
+      },
+      { onConflict: 'learner_id,mentor_id' }
+    )
     .select('*')
     .single();
 

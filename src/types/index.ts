@@ -131,6 +131,10 @@ export interface Session {
   durationMinutes: number;
   status: SessionStatus;
   createdAt: string;
+  learnerName?: string;
+  learnerAvatar?: string;
+  mentorName?: string;
+  mentorAvatar?: string;
 }
 
 export interface Workshop {

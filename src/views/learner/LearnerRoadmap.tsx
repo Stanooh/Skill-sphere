@@ -94,9 +94,9 @@ function LearnerRoadmapContent({ userId }: { userId: string }) {
 
       {/* AI Roadmap Generator banner */}
       <div className="card p-5 mt-6 bg-brand-50 border-brand-100">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center shrink-0">
               <Wand2 className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -104,7 +104,7 @@ function LearnerRoadmapContent({ userId }: { userId: string }) {
               <p className="text-sm text-ink-400">Want a more detailed roadmap with phases, projects, and milestones? Try our AI generator.</p>
             </div>
           </div>
-          <Link href="/learner/roadmap/create">
+          <Link href="/learner/roadmap/create" className="shrink-0">
             <Button size="sm"><Sparkles className="w-4 h-4" /> Try AI Roadmap</Button>
           </Link>
         </div>

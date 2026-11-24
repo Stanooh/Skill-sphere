@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Badge } from '@/components/ui/Badge';
+import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState, Tabs } from '@/components/ui';
 import { CalendarDays, Clock } from 'lucide-react';
 import { getSessionsForMentor } from '@/services/sessionService';
-import { getUserById } from '@/services/dataService';
 import type { Session, SessionStatus } from '@/types';
 
 const statusConfig: Record<SessionStatus, { label: string; variant: 'amber' | 'green' | 'red' | 'gray' }> = {
@@ -50,7 +49,7 @@ export function MentorSessionsPage() {
   return (
     <DashboardLayout>
       <PageHeader title="Sessions" description="View all your mentorship sessions." />
-      <div className="mb-6">
+      <div className="mb-6 overflow-x-auto">
         <Tabs
           tabs={[
             { id: 'upcoming', label: `Upcoming (${upcoming.length})` },
@@ -75,27 +74,20 @@ export function MentorSessionsPage() {
       ) : (
         <div className="space-y-3">
           {displayed.map((session) => {
-            const learner = getUserById(session.learnerId);
+            const learnerName = session.learnerName || 'SkillSphere Learner';
             const cfg = statusConfig[session.status];
             return (
               <div key={session.id} className="card p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    {learner?.avatar && (
-                      <Image
-                        src={learner.avatar}
-                        alt={learner.name}
-                        width={48}
-                        height={48}
-                        unoptimized
-                        className="w-12 h-12 rounded-full"
-                      />
-                    )}
-                    <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <Avatar src={session.learnerAvatar} name={learnerName} size="md" />
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-ink">{session.title}</h3>
-                      <p className="text-sm text-ink-400 mt-0.5">{session.description}</p>
-                      <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-ink-400">
-                        {learner && <span>with {learner.name}</span>}
+                      {session.description && (
+                        <p className="text-sm text-ink-400 mt-0.5 break-words">{session.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-sm text-ink-400">
+                        <span>with <strong className="font-medium text-ink">{learnerName}</strong></span>
                         <span className="flex items-center gap-1">
                           <CalendarDays className="w-4 h-4" />{' '}
                           {new Date(session.scheduledDate).toLocaleDateString('en-US', {

@@ -11,42 +11,77 @@ import { MentorCard } from '@/components/mentors/MentorCard';
 import { WorkshopCard } from '@/components/workshops/WorkshopCard';
 import {
   getRoadmap,
-  getSessionsForLearner,
   getWorkshops,
-  isMentorSaved,
-  saveMentor,
-  unsaveMentor,
   getProgress,
 } from '@/services/dataService';
+import { getSessionsForLearner } from '@/services/sessionService';
+import { getSavedMentorIds, saveMentor, unsaveMentor } from '@/services/savedMentorService';
 import { getRecommendedEligibleMentors } from '@/services/mentorProfileService';
-import type { MentorRecommendation } from '@/types';
+import { useToast } from '@/context/ToastContext';
+import type { MentorRecommendation, Session } from '@/types';
 import { useEffect, useState } from 'react';
 
 export function LearnerDashboard() {
   const { user } = useAuth();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { show } = useToast();
   const [recommendations, setRecommendations] = useState<MentorRecommendation[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
-    void getRecommendedEligibleMentors(user.id).then(setRecommendations);
+    let active = true;
+    void Promise.all([
+      getRecommendedEligibleMentors(user.id),
+      getSessionsForLearner(user.id),
+      getSavedMentorIds(user.id),
+    ]).then(([recs, sess, saved]) => {
+      if (!active) return;
+      setRecommendations(recs);
+      setSessions(sess);
+      setSavedIds(new Set(saved));
+    });
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   if (!user) return null;
   const roadmap = getRoadmap(user.id);
-  const sessions = getSessionsForLearner(user.id);
   const upcomingSessions = sessions.filter((s) => s.status === 'accepted' || s.status === 'pending');
   const workshops = getWorkshops().filter((w) => w.status === 'published');
   const progress = getProgress(user.id);
 
-  const handleSaveToggle = (mentorId: string) => {
-    if (isMentorSaved(user.id, mentorId)) unsaveMentor(user.id, mentorId);
-    else saveMentor(user.id, mentorId);
-    setRefreshKey((k) => k + 1);
+  const handleSaveToggle = async (mentorId: string) => {
+    const wasSaved = savedIds.has(mentorId);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (wasSaved) next.delete(mentorId);
+      else next.add(mentorId);
+      return next;
+    });
+    try {
+      if (wasSaved) {
+        await unsaveMentor(user.id, mentorId);
+        show('Mentor removed from saved.', 'info');
+      } else {
+        await saveMentor(user.id, mentorId);
+        show('Mentor saved!', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(mentorId);
+        else next.delete(mentorId);
+        return next;
+      });
+      show('Failed to update saved mentors.', 'error');
+    }
   };
 
   return (
-    <DashboardLayout key={refreshKey}>
+    <DashboardLayout>
       <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} description="Continue your learning journey where you left off." />
 
       {/* Continue learning */}
@@ -73,9 +108,9 @@ export function LearnerDashboard() {
 
       {/* AI Career Advisor banner */}
       <div className="card p-5 mb-8 bg-brand-50 border-brand-100">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -83,7 +118,7 @@ export function LearnerDashboard() {
               <p className="text-sm text-ink-400">Have a question about your career or learning direction?</p>
             </div>
           </div>
-          <Link href="/learner/career-advisor">
+          <Link href="/learner/career-advisor" className="shrink-0">
             <Button size="sm"><MessageSquare className="w-4 h-4" /> Ask Career Advisor</Button>
           </Link>
         </div>
@@ -112,7 +147,7 @@ export function LearnerDashboard() {
                 mentor={rec.mentor}
                 matchPercentage={rec.matchPercentage}
                 matchingSkills={rec.matchingSkills}
-                isSaved={isMentorSaved(user.id, rec.mentor.user.id)}
+                isSaved={savedIds.has(rec.mentor.user.id)}
                 onSaveToggle={() => handleSaveToggle(rec.mentor.user.id)}
               />
             ))}
@@ -122,9 +157,9 @@ export function LearnerDashboard() {
 
       {/* AI Roadmap Generator banner */}
       <div className="card p-5 mb-8 border-brand-100">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-ink-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-ink-100 flex items-center justify-center shrink-0">
               <Wand2 className="w-5 h-5 text-brand" />
             </div>
             <div>
@@ -132,7 +167,7 @@ export function LearnerDashboard() {
               <p className="text-sm text-ink-400">Generate a detailed learning plan with phases, projects, and milestones.</p>
             </div>
           </div>
-          <Link href="/learner/roadmap/create">
+          <Link href="/learner/roadmap/create" className="shrink-0">
             <Button size="sm" variant="secondary"><Wand2 className="w-4 h-4" /> Generate AI Roadmap</Button>
           </Link>
         </div>
