@@ -397,7 +397,6 @@ export function updateMentorProfile(userId: string, updates: Partial<MentorProfi
         mentorship_areas: p.mentorshipAreas,
         skill_ids: p.skillIds,
         profile_complete: p.profileComplete,
-        activated: p.activated,
         updated_at: new Date().toISOString(),
       }).eq('user_id', userId);
     }
