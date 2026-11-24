@@ -56,6 +56,21 @@ export interface LearnerProfile {
   approvedMentorIds?: string[];
 }
 
+export interface WorkExperienceEntry {
+  id?: string;
+  title: string;
+  company: string;
+  duration?: string;
+  description?: string;
+}
+
+export interface EducationEntry {
+  id?: string;
+  degree: string;
+  institution: string;
+  year?: string;
+}
+
 export interface MentorProfile {
   id: string;
   userId: string;
@@ -72,6 +87,23 @@ export interface MentorProfile {
   reviewCount: number;
   profileComplete: boolean;
   activated: boolean;
+  avatarUrl?: string;
+  company?: string;
+  workExperience?: WorkExperienceEntry[];
+  educationHistory?: EducationEntry[];
+  learnerLevels?: string[];
+  mentorshipApproach?: string;
+  preferredFormats?: string[];
+  languages?: string[];
+  availableDays?: string[];
+  preferredTimeSlots?: string[];
+  timezone?: string;
+  acceptingLearners?: boolean;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  websiteUrl?: string;
+  published?: boolean;
 }
 
 export interface AdminProfile {

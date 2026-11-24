@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { checkMentorAccess } from '@/services/mentorVerificationService';
+import { getMyMentorProfile } from '@/services/mentorProfileService';
 import { getRawAuthUser } from '@/services/authService';
 import type { MentorApplicationStatus, MentorApplication } from '@/types';
 import { MentorStatusScreen } from '@/views/mentor/MentorStatusScreen';
@@ -53,7 +54,13 @@ export function MentorAccessGuard({ children, allowPending = false, excludeAppro
 
       if (result.hasAccess) {
         if (excludeApproved) {
-          router.replace('/mentor');
+          const profile = await getMyMentorProfile(user.id);
+          if (!active) return;
+          if (profile && profile.profileComplete) {
+            router.replace('/mentor');
+          } else {
+            router.replace('/mentor/profile');
+          }
           setState({ phase: 'redirect' });
         } else {
           setState({ phase: 'allowed' });

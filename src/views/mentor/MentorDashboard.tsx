@@ -56,15 +56,17 @@ export function MentorDashboard() {
       <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} description="Manage your mentorship requests, sessions, and workshops." />
 
       {!profileReady && (
-        <div className="card p-5 mb-6 border-l-4 border-amber-500 bg-amber-950/20">
+        <div className="card p-5 mb-6 border-l-4 border-brand-500 bg-brand-50/40">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-ink">Your profile is not visible to learners yet</p>
-              <p className="text-sm text-ink-400 mt-1">Complete your profile with a professional title, bio, at least one skill, and availability to appear in mentor search results.</p>
+              <p className="font-semibold text-ink">Complete Your Mentor Profile</p>
+              <p className="text-sm text-ink-600 mt-1">
+                Your expertise has been verified! Now introduce yourself to learners by completing your professional profile.
+              </p>
               <Link href="/mentor/profile" className="inline-block mt-3">
-                <Button size="sm" variant="secondary">
-                  Complete your profile <ArrowRight className="h-4 w-4" />
+                <Button size="sm" variant="primary">
+                  Complete Your Mentor Profile <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               </Link>
             </div>

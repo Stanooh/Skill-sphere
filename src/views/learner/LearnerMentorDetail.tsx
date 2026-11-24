@@ -7,16 +7,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PublicBrowseLayout } from '@/components/layout/PublicBrowseLayout';
-import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { PublicTrustIndicators } from '@/components/verification/VerificationComponents';
 import { MentorRatingSection } from '@/components/mentors/MentorRatingSection';
 import { Input, Textarea, Select } from '@/components/ui/Input';
-import { Star, MapPin, Bookmark, Calendar, Award, Briefcase, GraduationCap, MessageSquare } from 'lucide-react';
+import { Bookmark, Calendar, Award, Briefcase, GraduationCap, MessageSquare, Globe, Linkedin, Github } from 'lucide-react';
+import { MentorPublicCard } from '@/components/mentors/MentorPublicCard';
 import {
-  getMentor,
   isMentorSaved,
   saveMentor,
   unsaveMentor,
@@ -36,7 +34,8 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
     publicView && searchParams.get('request') === '1'
   );
   const [refreshKey, setRefreshKey] = useState(0);
-  const [publicMentor, setPublicMentor] = useState<Mentor | null>(null);
+  const [mentor, setMentor] = useState<Mentor | null>(null);
+  const [loading, setLoading] = useState(true);
   const [ratingSummary, setRatingSummary] = useState<{ averageRating: number; totalReviews: number } | null>(null);
 
   const [sessionTitle, setSessionTitle] = useState('');
@@ -45,29 +44,30 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
   const [sessionDuration, setSessionDuration] = useState('60');
 
   useEffect(() => {
-    if (!publicView || !id) return;
+    if (!id) return;
     let active = true;
     void getEligibleMentor(id).then((nextMentor) => {
-      if (active) setPublicMentor(nextMentor);
+      if (active) {
+        setMentor(nextMentor);
+        setLoading(false);
+      }
     });
     return () => {
       active = false;
     };
-  }, [id, publicView]);
+  }, [id]);
 
   if ((!publicView && !user) || !id) return null;
-  const mentor = publicView ? publicMentor : getMentor(id);
-  if (publicView && !publicMentor) {
-    return (
-      <PublicBrowseLayout title="Mentor Profile">
-        <div className="py-16 text-center text-ink-400">Loading mentor profile...</div>
-      </PublicBrowseLayout>
-    );
+
+  if (loading) {
+    const loadingView = <div className="py-20 text-center text-ink-400">Loading mentor profile...</div>;
+    return publicView ? <PublicBrowseLayout title="Mentor Profile">{loadingView}</PublicBrowseLayout> : <DashboardLayout>{loadingView}</DashboardLayout>;
   }
+
   if (!mentor) {
     const notFound = (
       <div className="py-16 text-center">
-        <p className="text-ink-400">Mentor not found.</p>
+        <p className="text-ink-400">Mentor not found or profile is not published yet.</p>
         <Link href={publicView ? '/mentors' : '/learner/mentors'}>
           <Button variant="secondary" className="mt-4">Back to mentors</Button>
         </Link>
@@ -128,81 +128,196 @@ export function LearnerMentorDetailPage({ publicView = false }: { publicView?: b
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left: Profile */}
+        {/* Left: Profile Information */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="card p-6">
-            <div className="flex items-start gap-4 mb-6">
-              <Avatar src={mentor.user.avatar} name={mentor.user.name} size="xl" />
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-ink">{mentor.user.name}</h1>
-                <p className="text-ink-400">{mentor.profile.professionalTitle}</p>
-                <div className="mt-2"><PublicTrustIndicators mentorId={mentor.user.id} limitSkills={8} /></div>
-                <div className="flex items-center gap-4 mt-2 text-sm text-ink-400">
-                  <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {mentor.profile.location}</span>
-                  <span className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />{' '}
-                    {(ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount) > 0 ? (
-                      <span>
-                        {(ratingSummary ? ratingSummary.averageRating : mentor.profile.rating).toFixed(1)} (
-                        {ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount}{' '}
-                        {(ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount) === 1 ? 'review' : 'reviews'})
-                      </span>
-                    ) : (
-                      <span>No ratings yet</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
+          {/* Automatic Public Profile Card following exact hierarchy */}
+          <MentorPublicCard
+            fullName={mentor.user.name}
+            professionalHeadline={mentor.profile.professionalTitle}
+            biography={mentor.profile.bio}
+            avatarUrl={mentor.user.avatar || mentor.profile.avatarUrl}
+            skills={mentor.skills}
+            experienceYears={mentor.profile.experienceYears}
+            learnerLevels={mentor.profile.learnerLevels || []}
+            rating={ratingSummary ? ratingSummary.averageRating : mentor.profile.rating}
+            reviewCount={ratingSummary ? ratingSummary.totalReviews : mentor.profile.reviewCount}
+          />
 
-            <p className="text-ink-600 leading-relaxed mb-6">{mentor.profile.bio}</p>
-
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-ink mb-3">Expertise</h3>
-              <div className="flex flex-wrap gap-2">
-                {mentor.skills.map((skill) => (
-                  <Badge key={skill.id} variant="brand">{skill.name}</Badge>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4 mb-6">
-              <div className="flex items-start gap-3">
-                <Briefcase className="w-5 h-5 text-ink-300 shrink-0 mt-0.5" />
+          {/* Mentorship Approach & Focus Areas */}
+          {(mentor.profile.mentorshipApproach || (mentor.profile.mentorshipAreas && mentor.profile.mentorshipAreas.length > 0) || (mentor.profile.preferredFormats && mentor.profile.preferredFormats.length > 0)) && (
+            <div className="card p-6 space-y-4">
+              <h3 className="text-base font-bold text-ink">Mentorship Approach & Focus Areas</h3>
+              {mentor.profile.mentorshipApproach && (
+                <p className="text-sm text-ink-600 leading-relaxed whitespace-pre-line">
+                  {mentor.profile.mentorshipApproach}
+                </p>
+              )}
+              {mentor.profile.mentorshipAreas && mentor.profile.mentorshipAreas.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-ink">Experience</p>
-                  <p className="text-sm text-ink-400">{mentor.profile.experienceYears} years</p>
+                  <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2">Focus Areas</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {mentor.profile.mentorshipAreas.map((area) => (
+                      <Badge key={area} variant="gray">{area}</Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <GraduationCap className="w-5 h-5 text-ink-300 shrink-0 mt-0.5" />
+              )}
+              {mentor.profile.preferredFormats && mentor.profile.preferredFormats.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-ink">Education</p>
-                  <p className="text-sm text-ink-400">{mentor.profile.education}</p>
+                  <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2">Preferred Formats</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {mentor.profile.preferredFormats.map((fmt) => (
+                      <Badge key={fmt} variant="outline">{fmt}</Badge>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Experience & Credentials History */}
+          {((mentor.profile.workExperience && mentor.profile.workExperience.length > 0) || (mentor.profile.educationHistory && mentor.profile.educationHistory.length > 0) || mentor.profile.education) && (
+            <div className="card p-6 space-y-4">
+              <h3 className="text-base font-bold text-ink">Background & Credentials</h3>
+
+              {mentor.profile.workExperience && mentor.profile.workExperience.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5" /> Career History
+                  </h4>
+                  <div className="space-y-3">
+                    {mentor.profile.workExperience.map((exp, idx) => (
+                      <div key={idx} className="border-l-2 border-brand-500 pl-3 py-0.5">
+                        <p className="text-sm font-semibold text-ink">{exp.title} {exp.company ? `at ${exp.company}` : ''}</p>
+                        {exp.duration && <p className="text-xs text-ink-400">{exp.duration}</p>}
+                        {exp.description && <p className="text-xs text-ink-600 mt-1">{exp.description}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(mentor.profile.educationHistory && mentor.profile.educationHistory.length > 0) ? (
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5" /> Education
+                  </h4>
+                  <div className="space-y-2">
+                    {mentor.profile.educationHistory.map((edu, idx) => (
+                      <div key={idx} className="border-l-2 border-ink-200 pl-3 py-0.5">
+                        <p className="text-sm font-semibold text-ink">{edu.degree}</p>
+                        <p className="text-xs text-ink-400">{edu.institution} {edu.year ? `• ${edu.year}` : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : mentor.profile.education ? (
+                <div className="pt-2">
+                  <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5" /> Education
+                  </h4>
+                  <p className="text-sm text-ink-600 mt-1">{mentor.profile.education}</p>
+                </div>
+              ) : null}
+
+              {mentor.profile.certifications && mentor.profile.certifications.length > 0 && (
+                <div className="pt-2">
+                  <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Award className="w-3.5 h-3.5" /> Certifications
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {mentor.profile.certifications.map((cert) => (
+                      <Badge key={cert} variant="outline">{cert}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Availability & Languages */}
+          {((mentor.profile.availableDays && mentor.profile.availableDays.length > 0) || mentor.profile.timezone || (mentor.profile.languages && mentor.profile.languages.length > 0)) && (
+            <div className="card p-6 space-y-4">
+              <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-brand-600" /> Availability & Schedule
+              </h3>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                {mentor.profile.availableDays && mentor.profile.availableDays.length > 0 && (
+                  <div>
+                    <span className="text-xs font-semibold text-ink-400 uppercase tracking-wider block mb-1">Available Days</span>
+                    <p className="font-medium text-ink">{mentor.profile.availableDays.join(', ')}</p>
+                  </div>
+                )}
+                {mentor.profile.preferredTimeSlots && mentor.profile.preferredTimeSlots.length > 0 && (
+                  <div>
+                    <span className="text-xs font-semibold text-ink-400 uppercase tracking-wider block mb-1">Time Slots</span>
+                    <p className="font-medium text-ink">{mentor.profile.preferredTimeSlots.join(', ')}</p>
+                  </div>
+                )}
+                {mentor.profile.timezone && (
+                  <div>
+                    <span className="text-xs font-semibold text-ink-400 uppercase tracking-wider block mb-1">Time Zone</span>
+                    <p className="font-medium text-ink">{mentor.profile.timezone}</p>
+                  </div>
+                )}
+                {mentor.profile.languages && mentor.profile.languages.length > 0 && (
+                  <div>
+                    <span className="text-xs font-semibold text-ink-400 uppercase tracking-wider block mb-1">Languages</span>
+                    <p className="font-medium text-ink">{mentor.profile.languages.join(', ')}</p>
+                  </div>
+                )}
               </div>
             </div>
+          )}
 
-            {mentor.profile.certifications.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-ink mb-2 flex items-center gap-2"><Award className="w-4 h-4" /> Certifications</h3>
-                <div className="flex flex-wrap gap-2">
-                  {mentor.profile.certifications.map((cert) => (
-                    <Badge key={cert} variant="outline">{cert}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h3 className="text-sm font-semibold text-ink mb-2">Mentorship Areas</h3>
-              <div className="flex flex-wrap gap-2">
-                {mentor.profile.mentorshipAreas.map((area) => (
-                  <Badge key={area} variant="gray">{area}</Badge>
-                ))}
+          {/* Professional Links */}
+          {(mentor.profile.linkedinUrl || mentor.profile.githubUrl || mentor.profile.portfolioUrl || mentor.profile.websiteUrl) && (
+            <div className="card p-5">
+              <h4 className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-3">Professional Links</h4>
+              <div className="flex flex-wrap gap-3">
+                {mentor.profile.linkedinUrl && (
+                  <a
+                    href={mentor.profile.linkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ink-200 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                  >
+                    <Linkedin className="w-3.5 h-3.5 text-blue-600" /> LinkedIn
+                  </a>
+                )}
+                {mentor.profile.githubUrl && (
+                  <a
+                    href={mentor.profile.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ink-200 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                  >
+                    <Github className="w-3.5 h-3.5 text-ink-800" /> GitHub
+                  </a>
+                )}
+                {mentor.profile.portfolioUrl && (
+                  <a
+                    href={mentor.profile.portfolioUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ink-200 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-emerald-600" /> Portfolio
+                  </a>
+                )}
+                {mentor.profile.websiteUrl && (
+                  <a
+                    href={mentor.profile.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ink-200 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-brand-600" /> Website
+                  </a>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
           <MentorRatingSection
             mentorId={mentor.user.id}

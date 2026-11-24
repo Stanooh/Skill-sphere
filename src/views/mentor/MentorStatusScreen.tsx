@@ -46,11 +46,11 @@ const statusConfigs: Partial<Record<MentorApplicationStatus, StatusConfig>> = {
   },
   approved: {
     icon: CheckCircle2,
-    title: 'Application approved',
-    description: 'Congratulations! Your mentor application has been approved. You now have access to the mentor dashboard.',
+    title: 'Expertise Verified — Application Approved!',
+    description: 'Congratulations! Your expertise has been verified and your mentor application approved. Complete your professional profile to introduce yourself to learners.',
     variant: 'green',
-    actionLabel: 'Go to mentor dashboard',
-    actionHref: '/mentor',
+    actionLabel: 'Complete Your Mentor Profile',
+    actionHref: '/mentor/profile',
   },
   rejected: {
     icon: XCircle,
