@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useCallback, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -96,9 +96,23 @@ export function DashboardLayout({ children, title, restricted = false }: { child
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileOpenPath, setMobileOpenPath] = useState<string | null>(null);
+  const [notifOpenPath, setNotifOpenPath] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const mobileOpen = mobileOpenPath === pathname;
+  const notifOpen = notifOpenPath === pathname;
+  const setMobileOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      setMobileOpenPath((prev) => {
+        const wasOpen = prev === pathname;
+        const shouldOpen = typeof next === 'function' ? next(wasOpen) : next;
+        return shouldOpen ? pathname : null;
+      });
+    },
+    [pathname]
+  );
 
   const navItems = restricted ? restrictedNav : user ? getNavItems(user.role) : [];
   const activeNavPath = navItems
@@ -127,15 +141,44 @@ export function DashboardLayout({ children, title, restricted = false }: { child
     };
   }, [user]);
 
+  // Close notification dropdown on outside click/touch or Escape key
+  const closeNotif = useCallback(() => setNotifOpenPath(null), []);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        closeNotif();
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeNotif();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [notifOpen, closeNotif]);
+
   const handleLogout = async () => {
+    setNotifOpenPath(null);
+    setMobileOpenPath(null);
     await logout();
     router.push('/login');
   };
 
   const handleNotifClick = () => {
-    setNotifOpen(!notifOpen);
-    if (!notifOpen && unreadCount > 0) {
-      void markAllNotificationsRead(user!.id).then(() => {
+    setMobileOpenPath(null);
+    const willOpen = !notifOpen;
+    setNotifOpenPath(willOpen ? pathname : null);
+    if (willOpen && unreadCount > 0 && user) {
+      void markAllNotificationsRead(user.id).then(() => {
         setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
       });
     }
@@ -145,7 +188,7 @@ export function DashboardLayout({ children, title, restricted = false }: { child
     <div className="min-h-screen bg-ink-50 flex">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-ink-800 border-r border-ink-200 flex flex-col z-40 transition-transform duration-200 ${
+        className={`fixed lg:sticky top-0 left-0 h-[100dvh] lg:h-screen w-64 bg-ink-800 border-r border-ink-200 flex flex-col z-40 transition-transform duration-200 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -214,11 +257,15 @@ export function DashboardLayout({ children, title, restricted = false }: { child
             {title && <h1 className="text-lg font-semibold text-ink hidden sm:block ml-2">{title}</h1>}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="relative" ref={notifRef}>
               <button
+                type="button"
                 onClick={handleNotifClick}
-                className="relative p-2 rounded-lg hover:bg-ink-100 text-ink-400"
+                aria-expanded={notifOpen}
+                aria-haspopup="dialog"
+                aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+                className="relative p-2 rounded-lg hover:bg-ink-100 text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-300"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
@@ -228,27 +275,52 @@ export function DashboardLayout({ children, title, restricted = false }: { child
                 )}
               </button>
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-ink-800 rounded-xl border border-ink-200 shadow-card-hover z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-ink-200">
+                <div
+                  role="dialog"
+                  aria-label="Notifications"
+                  className="fixed inset-x-4 top-[4.25rem] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-sm bg-ink-800 rounded-xl border border-ink-200 shadow-card-hover z-50 overflow-hidden"
+                >
+                  <div className="px-4 py-3 border-b border-ink-200 flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-ink">Notifications</p>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href="/notifications"
+                        onClick={closeNotif}
+                        className="text-xs font-medium text-brand-700 hover:underline whitespace-nowrap"
+                      >
+                        View all
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={closeNotif}
+                        aria-label="Close notifications"
+                        className="p-1 rounded-md text-ink-400 hover:text-ink hover:bg-ink-100 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="max-h-80 overflow-y-auto scrollbar-thin">
+                  <div className="max-h-[65dvh] sm:max-h-80 overflow-y-auto scrollbar-thin">
                     {notifications.length === 0 ? (
                       <p className="px-4 py-6 text-sm text-ink-400 text-center">No notifications</p>
                     ) : (
                       notifications.map((n) => (
                         <button
                           key={n.id}
+                          type="button"
                           onClick={() => {
                             if (!n.read && user) {
                               void markNotificationRead(user.id, n.id);
                               setNotifications((current) => current.map((item) => item.id === n.id ? { ...item, read: true } : item));
                             }
                           }}
-                          className="w-full px-4 py-3 border-b border-ink-100 hover:bg-ink-100 text-left"
+                          className="w-full px-4 py-3 border-b border-ink-100 last:border-b-0 hover:bg-ink-100 text-left transition-colors"
                         >
-                          <p className="text-sm font-medium text-ink">{n.title}</p>
-                          <p className="text-xs text-ink-400 mt-0.5">{n.message}</p>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium text-ink break-words min-w-0">{n.title}</p>
+                            {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />}
+                          </div>
+                          <p className="text-xs text-ink-400 mt-0.5 break-words">{n.message}</p>
                         </button>
                       ))
                     )}
@@ -263,6 +335,16 @@ export function DashboardLayout({ children, title, restricted = false }: { child
               <Avatar src={user?.avatar} name={user?.name ?? ''} size="sm" />
               <span className="text-sm font-medium text-ink hidden sm:block">{user?.name?.split(' ')[0]}</span>
             </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Sign Out"
+              title="Sign Out"
+              className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-950/60 hover:text-red-300 transition-colors"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
           </div>
         </header>
 

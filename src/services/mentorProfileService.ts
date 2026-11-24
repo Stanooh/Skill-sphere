@@ -233,6 +233,20 @@ export async function saveMentorProfile(
 ): Promise<{ profile: MentorProfile | null; error?: string }> {
   const supabase = createClient();
 
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) {
+    return {
+      profile: null,
+      error: 'Your session has expired. Please sign in again to save your profile.',
+    };
+  }
+  if (authData.user.id !== userId) {
+    return {
+      profile: null,
+      error: 'You are not authorized to modify another user’s mentor profile.',
+    };
+  }
+
   // Validate mandatory fields for completion: only the 6 required fields
   const hasTitle = fields.professionalTitle.trim().length > 0;
   const hasBio = fields.bio.trim().length > 0;
@@ -271,8 +285,7 @@ export async function saveMentorProfile(
     availability = 'unavailable';
   }
 
-  const payload: Record<string, unknown> = {
-    user_id: userId,
+  const updateFields: Record<string, unknown> = {
     professional_title: fields.professionalTitle.trim(),
     bio: fields.bio.trim(),
     location: (fields.location ?? '').trim(),
@@ -300,25 +313,44 @@ export async function saveMentorProfile(
     updated_at: new Date().toISOString(),
   };
 
-  if (fields.avatarUrl) {
-    payload.avatar_url = fields.avatarUrl;
+  if (fields.avatarUrl !== undefined) {
+    updateFields.avatar_url = fields.avatarUrl || null;
   }
 
   if (shouldPublish) {
-    payload.profile_complete = true;
-    payload.activated = true;
-    payload.published = true;
+    updateFields.profile_complete = true;
+    updateFields.published = true;
   } else if (fields.publish === false) {
     // Save draft - do not mark published
-    payload.published = false;
-    payload.profile_complete = isComplete;
+    updateFields.published = false;
+    updateFields.profile_complete = isComplete;
   }
 
-  const { data, error } = await supabase
+  // Check whether the profile row already exists (created on admin approval)
+  // so subsequent saves execute a pure UPDATE on editable columns only.
+  const { data: existingProfile, error: existingError } = await supabase
     .from('mentor_profiles')
-    .upsert(payload, { onConflict: 'user_id' })
-    .select('*, profiles(id, full_name, email, avatar_url)')
-    .single();
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existingError) {
+    reportError('check existing profile', existingError);
+    return { profile: null, error: existingError.message || 'Failed to verify existing mentor profile.' };
+  }
+
+  const { data, error } = existingProfile
+    ? await supabase
+        .from('mentor_profiles')
+        .update(updateFields)
+        .eq('user_id', userId)
+        .select('*, profiles(id, full_name, email, avatar_url)')
+        .single()
+    : await supabase
+        .from('mentor_profiles')
+        .insert({ user_id: userId, ...updateFields })
+        .select('*, profiles(id, full_name, email, avatar_url)')
+        .single();
 
   if (error || !data) {
     if (error) reportError('save profile', error);

@@ -30,13 +30,13 @@ import {
 const LEARNER_LEVEL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced'];
 
 export function MentorProfilePage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   if (!user) return null;
 
-  return <MentorProfileContent key={user.id} user={user} logout={logout} />;
+  return <MentorProfileContent key={user.id} user={user} />;
 }
 
-function MentorProfileContent({ user }: { user: User; logout: () => Promise<void> }) {
+function MentorProfileContent({ user }: { user: User }) {
   const { show } = useToast();
 
   // Lifecycle & Access states
@@ -262,14 +262,14 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
       {isPublished && !isEditing ? (
         <div className="space-y-6">
           {/* Status banner */}
-          <div className="card p-5 bg-[#e6f7ef]/50 border border-[#bbf0d6] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="card p-5 bg-emerald-950/30 border border-emerald-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#e6f7ef] flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-[#107544]" />
+              <div className="w-10 h-10 rounded-full bg-emerald-950 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <p className="font-semibold text-[#107544]">Profile is Published & Live</p>
-                <p className="text-xs text-[#273339]/70 mt-0.5">
+                <p className="font-semibold text-emerald-300">Profile is Published & Live</p>
+                <p className="text-xs text-ink-400 mt-0.5">
                   Your profile is actively discoverable by learners in the SkillSphere directory.
                 </p>
               </div>
@@ -314,9 +314,9 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
         <div className="grid lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Form containing ONLY the 6 fields */}
           <div className="lg:col-span-7">
-            <form onSubmit={handleSaveProfile} className="card p-6 sm:p-8 space-y-6 bg-white border border-ink-100 shadow-sm rounded-2xl">
+            <form onSubmit={handleSaveProfile} className="card p-6 sm:p-8 space-y-6 bg-ink-800 border border-ink-200 shadow-sm rounded-2xl">
               <div>
-                <h3 className="text-lg font-bold text-[#273339]">Profile Information</h3>
+                <h3 className="text-lg font-bold text-ink">Profile Information</h3>
                 <p className="text-xs text-ink-400 mt-1">
                   Fill in your professional details below to generate your public mentor profile.
                 </p>
@@ -324,7 +324,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
 
               {/* Read-only Full Name from Authenticated Account */}
               <div className="space-y-1">
-                <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wider">
+                <label className="block text-xs font-semibold text-ink-400 uppercase tracking-wider">
                   Full Name
                 </label>
                 <input
@@ -337,8 +337,8 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Field 1: Profile Photo */}
-              <div className="space-y-2 pt-2 border-t border-ink-100">
-                <label className="block text-sm font-semibold text-[#273339]">
+              <div className="space-y-2 pt-2 border-t border-ink-200">
+                <label className="block text-sm font-semibold text-ink">
                   1. Profile Photo
                 </label>
                 <p className="text-xs text-ink-400 mb-3">
@@ -371,7 +371,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Field 2: Professional Title */}
-              <div className="space-y-1 pt-2 border-t border-ink-100">
+              <div className="space-y-1 pt-2 border-t border-ink-200">
                 <Input
                   label="2. Professional Title *"
                   placeholder="e.g. Full-Stack Developer & Mentor"
@@ -383,7 +383,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Field 3: Biography */}
-              <div className="space-y-1 pt-2 border-t border-ink-100">
+              <div className="space-y-1 pt-2 border-t border-ink-200">
                 <Textarea
                   label="3. Biography *"
                   rows={4}
@@ -398,10 +398,10 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Field 4: Expertise (Competency-Approved Skills from Supabase) */}
-              <div className="space-y-3 pt-2 border-t border-ink-100">
+              <div className="space-y-3 pt-2 border-t border-ink-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-sm font-semibold text-[#273339]">
+                    <label className="block text-sm font-semibold text-ink">
                       4. Expertise (Approved Skills) *
                     </label>
                     <p className="text-xs text-ink-400 mt-0.5">
@@ -420,8 +420,8 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
                 </div>
 
                 {verifiedCompetencies.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-700/50 text-xs text-amber-200 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                     <span>No verified competencies found. Only skills approved by administrators can be displayed.</span>
                   </div>
                 ) : (
@@ -436,12 +436,12 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
                           className={`flex items-center gap-2 p-3 rounded-xl border text-left text-xs font-medium transition-all ${
                             isSelected
                               ? 'bg-[#EBF2FF] border-[#3770FF] text-[#3770FF] shadow-xs'
-                              : 'bg-white border-ink-200 text-ink-600 hover:border-brand-300'
+                              : 'bg-ink-100/60 border-ink-200 text-ink-400 hover:border-brand-300'
                           }`}
                         >
                           <div
                             className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                              isSelected ? 'bg-[#3770FF] border-[#3770FF] text-white' : 'border-ink-300 bg-white'
+                              isSelected ? 'bg-[#3770FF] border-[#3770FF] text-white' : 'border-ink-300 bg-ink-50'
                             }`}
                           >
                             {isSelected && <span className="text-[10px] font-bold">✓</span>}
@@ -455,7 +455,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Field 5: Experience */}
-              <div className="space-y-1 pt-2 border-t border-ink-100">
+              <div className="space-y-1 pt-2 border-t border-ink-200">
                 <Input
                   label="5. Experience (Years) *"
                   type="number"
@@ -473,8 +473,8 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Field 6: Learner Level */}
-              <div className="space-y-2 pt-2 border-t border-ink-100">
-                <label className="block text-sm font-semibold text-[#273339]">
+              <div className="space-y-2 pt-2 border-t border-ink-200">
+                <label className="block text-sm font-semibold text-ink">
                   6. Learner Level *
                 </label>
                 <p className="text-xs text-ink-400">
@@ -491,7 +491,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
                         className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
                           isSelected
                             ? 'bg-[#3770FF] text-white border-[#3770FF] shadow-sm'
-                            : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300'
+                            : 'bg-ink-100/60 text-ink-400 border-ink-200 hover:border-brand-300'
                         }`}
                       >
                         {isSelected && '✓ '}
@@ -503,7 +503,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               </div>
 
               {/* Form Action Buttons */}
-              <div className="pt-6 border-t border-ink-100 flex items-center gap-3">
+              <div className="pt-6 border-t border-ink-200 flex items-center gap-3">
                 <Button
                   type="submit"
                   variant="primary"
@@ -531,7 +531,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
 
           {/* Right Column: Live Generated Public Profile Preview */}
           <div className="lg:col-span-5 sticky top-6 space-y-3">
-            <div className="flex items-center gap-2 text-ink-500 font-semibold text-xs uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-ink-400 font-semibold text-xs uppercase tracking-wider">
               <Eye className="w-4 h-4 text-[#3770FF]" />
               <span>Live Public Profile Preview</span>
             </div>
@@ -546,7 +546,7 @@ function MentorProfileContent({ user }: { user: User; logout: () => Promise<void
               learnerLevels={learnerLevels}
               rating={ratingSummary?.averageRating || 0}
               reviewCount={ratingSummary?.totalReviews || 0}
-              isPreview={true}
+              isPreview={false}
             />
 
             <p className="text-xs text-ink-400 text-center px-4">
