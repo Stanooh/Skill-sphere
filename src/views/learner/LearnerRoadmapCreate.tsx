@@ -194,7 +194,10 @@ function LearnerRoadmapCreateContent({ userId, userName }: { userId: string; use
           title={`${generatedRoadmap.careerPath} Roadmap`}
           description={`Personalized for ${userName.split(' ')[0]} • ${generatedRoadmap.targetTimeline} • ${generatedRoadmap.hoursPerWeek}h/week`}
           action={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Link href="/learner/roadmap">
+                <Button variant="secondary" size="sm">Open Interactive Tracker</Button>
+              </Link>
               <Link href="/learner/career-advisor">
                 <Button variant="secondary" size="sm"><MessageSquare className="w-4 h-4" /> Ask Career Advisor</Button>
               </Link>

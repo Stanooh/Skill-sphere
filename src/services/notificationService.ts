@@ -94,10 +94,20 @@ export function subscribeToNotifications(userId: string, onChange: () => void): 
 
 export async function createNotification(input: {
   userId: string;
-  type: 'mentorship_request' | 'session_accepted' | 'session_declined' | 'mentor_review_received' | 'message_received';
+  type:
+    | 'mentorship_request'
+    | 'session_accepted'
+    | 'session_declined'
+    | 'session_cancelled'
+    | 'session_completed'
+    | 'mentor_review_received'
+    | 'message_received'
+    | 'workshop_update'
+    | 'announcement';
   title: string;
   message: string;
   entityId?: string;
+  eventKey?: string;
 }): Promise<string | null> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc('create_notification', {
@@ -106,6 +116,7 @@ export async function createNotification(input: {
     p_title: input.title,
     p_message: input.message,
     p_entity_id: input.entityId ?? null,
+    p_event_key: input.eventKey ?? null,
   });
 
   if (error) {
@@ -113,4 +124,30 @@ export async function createNotification(input: {
     return null;
   }
   return typeof data === 'string' ? data : null;
+}
+
+export function getNotificationHref(
+  notification: Notification,
+  role: 'learner' | 'mentor' | 'admin'
+): string {
+  const base = role === 'learner' ? '/learner' : role === 'mentor' ? '/mentor' : '/admin';
+  switch (notification.type) {
+    case 'message_received':
+      return notification.relatedEntityId
+        ? `${base}/messages?conversationId=${notification.relatedEntityId}`
+        : `${base}/messages`;
+    case 'mentorship_request':
+    case 'session_cancelled':
+      return role === 'mentor' ? '/mentor/requests' : '/learner/sessions';
+    case 'session_accepted':
+    case 'session_declined':
+    case 'session_completed':
+      return role === 'learner' ? '/learner/sessions' : '/mentor/sessions';
+    case 'mentor_review_received':
+      return role === 'mentor' ? '/mentor/profile' : '/learner/mentors';
+    case 'workshop_update':
+      return `${base}/workshops`;
+    default:
+      return '/notifications';
+  }
 }

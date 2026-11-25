@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Check } from 'lucide-react';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { EmptyState } from '@/components/ui';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
 import {
   getNotifications,
+  getNotificationHref,
   markAllNotificationsRead,
   markNotificationRead,
   subscribeToNotifications,
@@ -16,6 +18,7 @@ import type { Notification } from '@/types';
 
 export function NotificationsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +49,16 @@ export function NotificationsPage() {
     setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
   };
 
+  const handleOpenNotification = (notification: Notification) => {
+    if (!notification.read) {
+      void markNotificationRead(user.id, notification.id);
+      setNotifications((current) =>
+        current.map((item) => (item.id === notification.id ? { ...item, read: true } : item))
+      );
+    }
+    router.push(getNotificationHref(notification, user.role));
+  };
+
   return (
     <DashboardLayout>
       <PageHeader
@@ -64,12 +77,9 @@ export function NotificationsPage() {
           {notifications.map((notification) => (
             <button
               key={notification.id}
-              className={`w-full p-4 text-left hover:bg-ink-50 ${notification.read ? '' : 'bg-brand-50/40'}`}
-              onClick={() => {
-                if (notification.read) return;
-                void markNotificationRead(user.id, notification.id);
-                setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item));
-              }}
+              type="button"
+              className={`w-full p-4 text-left hover:bg-ink-50 transition-colors ${notification.read ? '' : 'bg-brand-50/40'}`}
+              onClick={() => handleOpenNotification(notification)}
             >
               <div className="flex items-start justify-between gap-4">
                 <p className="font-medium text-ink">{notification.title}</p>

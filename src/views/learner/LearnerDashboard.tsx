@@ -9,17 +9,18 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar, EmptyState } from '@/components/ui';
 import { MentorCard } from '@/components/mentors/MentorCard';
 import { WorkshopCard } from '@/components/workshops/WorkshopCard';
-import {
-  getRoadmap,
-  getWorkshops,
-  getProgress,
-} from '@/services/dataService';
+import { getWorkshops } from '@/services/dataService';
 import { getSessionsForLearner } from '@/services/sessionService';
 import { getSavedMentorIds, saveMentor, unsaveMentor } from '@/services/savedMentorService';
 import { getRecommendedEligibleMentors } from '@/services/mentorProfileService';
+import {
+  getLearnerProgressSummary,
+  subscribeToRoadmapProgress,
+  type LearnerProgressSummary,
+} from '@/services/roadmapProgressService';
 import { useToast } from '@/context/ToastContext';
 import type { MentorRecommendation, Session } from '@/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export function LearnerDashboard() {
   const { user } = useAuth();
@@ -27,6 +28,13 @@ export function LearnerDashboard() {
   const [recommendations, setRecommendations] = useState<MentorRecommendation[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [progressSummary, setProgressSummary] = useState<LearnerProgressSummary | null>(null);
+
+  const refreshProgress = useCallback(async () => {
+    if (!user) return;
+    const summary = await getLearnerProgressSummary(user.id);
+    setProgressSummary(summary);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -35,22 +43,27 @@ export function LearnerDashboard() {
       getRecommendedEligibleMentors(user.id),
       getSessionsForLearner(user.id),
       getSavedMentorIds(user.id),
-    ]).then(([recs, sess, saved]) => {
+      getLearnerProgressSummary(user.id),
+    ]).then(([recs, sess, saved, prog]) => {
       if (!active) return;
       setRecommendations(recs);
       setSessions(sess);
       setSavedIds(new Set(saved));
+      setProgressSummary(prog);
+    });
+    const unsubscribe = subscribeToRoadmapProgress(user.id, () => {
+      void refreshProgress();
     });
     return () => {
       active = false;
+      unsubscribe();
     };
-  }, [user]);
+  }, [user, refreshProgress]);
 
   if (!user) return null;
-  const roadmap = getRoadmap(user.id);
+  const latestRoadmap = progressSummary?.roadmaps[0] ?? null;
   const upcomingSessions = sessions.filter((s) => s.status === 'accepted' || s.status === 'pending');
   const workshops = getWorkshops().filter((w) => w.status === 'published');
-  const progress = getProgress(user.id);
 
   const handleSaveToggle = async (mentorId: string) => {
     const wasSaved = savedIds.has(mentorId);
@@ -85,18 +98,18 @@ export function LearnerDashboard() {
       <PageHeader title={`Welcome back, ${user.name.split(' ')[0]}`} description="Continue your learning journey where you left off." />
 
       {/* Continue learning */}
-      {roadmap ? (
+      {latestRoadmap ? (
         <div className="card p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-ink mb-1">Continue your learning</h2>
-              <p className="text-sm text-ink-400">{roadmap.goal}</p>
+              <p className="text-sm text-ink-400">{latestRoadmap.title} — {latestRoadmap.careerGoal}</p>
             </div>
             <Link href="/learner/roadmap">
               <Button variant="ghost" size="sm">View roadmap <ArrowRight className="w-4 h-4" /></Button>
             </Link>
           </div>
-          <ProgressBar value={progress.percentage} label="Roadmap progress" />
+          <ProgressBar value={latestRoadmap.percentage} label={`Roadmap progress (${latestRoadmap.completedItems}/${latestRoadmap.totalItems})`} />
         </div>
       ) : (
         <div className="card p-6 mb-8">

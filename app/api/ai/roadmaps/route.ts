@@ -52,14 +52,22 @@ export async function GET() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from('learning_roadmaps')
-    .select('*')
-    .eq('user_id', auth.user.id)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: false });
+  const [{ data, error }, { data: progressRows }] = await Promise.all([
+    supabase
+      .from('learning_roadmaps')
+      .select('*')
+      .eq('user_id', auth.user.id)
+      .neq('status', 'archived')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('roadmap_progress')
+      .select('roadmap_id, stage_id, item_id, item_type, completed')
+      .eq('user_id', auth.user.id)
+      .eq('completed', true),
+  ]);
+
   if (error) return NextResponse.json({ error: 'Could not load roadmaps.' }, { status: 500 });
-  return NextResponse.json({ roadmaps: data ?? [] });
+  return NextResponse.json({ roadmaps: data ?? [], progress: progressRows ?? [] });
 }
 
 export async function POST(request: Request) {

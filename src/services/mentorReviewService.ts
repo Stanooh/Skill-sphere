@@ -221,6 +221,7 @@ export async function submitMentorReview(input: {
       title: 'New Rating & Review',
       message: `${savedReview.learnerName} gave you a ${ratingInt}-star rating${reviewText ? `: "${reviewText.slice(0, 70)}..."` : '.'}`,
       entityId: savedReview.id,
+      eventKey: `review:${savedReview.id}`,
     });
   } catch {
     // Non-blocking

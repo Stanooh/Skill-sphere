@@ -29,6 +29,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import {
   getNotifications,
+  getNotificationHref,
   markAllNotificationsRead,
   markNotificationRead,
   subscribeToNotifications,
@@ -175,11 +176,15 @@ export function DashboardLayout({ children, title, restricted = false }: { child
     setMobileOpenPath(null);
     const willOpen = !notifOpen;
     setNotifOpenPath(willOpen ? pathname : null);
-    if (willOpen && unreadCount > 0 && user) {
-      void markAllNotificationsRead(user.id).then(() => {
-        setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
-      });
-    }
+  };
+
+  const handleMarkAllRead = () => {
+    if (!user || unreadCount === 0) return;
+    void markAllNotificationsRead(user.id).then((ok) => {
+      if (ok) {
+        setNotifications((current) => current.map((n) => ({ ...n, read: true })));
+      }
+    });
   };
 
   return (
@@ -281,6 +286,15 @@ export function DashboardLayout({ children, title, restricted = false }: { child
                   <div className="px-4 py-3 border-b border-ink-200 flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-ink">Notifications</p>
                     <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleMarkAllRead}
+                          className="text-xs font-medium text-ink-400 hover:text-ink whitespace-nowrap"
+                        >
+                          Mark all read
+                        </button>
+                      )}
                       <Link
                         href="/notifications"
                         onClick={closeNotif}
@@ -311,8 +325,14 @@ export function DashboardLayout({ children, title, restricted = false }: { child
                               void markNotificationRead(user.id, n.id);
                               setNotifications((current) => current.map((item) => item.id === n.id ? { ...item, read: true } : item));
                             }
+                            closeNotif();
+                            if (user) {
+                              router.push(getNotificationHref(n, user.role));
+                            }
                           }}
-                          className="w-full px-4 py-3 border-b border-ink-100 last:border-b-0 hover:bg-ink-100 text-left transition-colors"
+                          className={`w-full px-4 py-3 border-b border-ink-100 last:border-b-0 hover:bg-ink-100 text-left transition-colors ${
+                            n.read ? '' : 'bg-brand-500/10'
+                          }`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-ink break-words min-w-0">{n.title}</p>

@@ -50,8 +50,42 @@ async function fetchJsonWithTimeout(
   }
 }
 
-function mapDbRoadmap(saved: DbRoadmapRow, hoursPerWeek = 10): LearningRoadmap {
+type DbProgressRow = {
+  roadmap_id: string;
+  stage_id: string;
+  item_id: string;
+  item_type: string;
+  completed: boolean;
+};
+
+function mapDbRoadmap(
+  saved: DbRoadmapRow,
+  hoursPerWeek = 10,
+  completedSet?: Set<string>
+): LearningRoadmap {
   const data = saved.roadmap_data;
+  const phases = data.stages.map((stage) => ({
+    id: stage.id,
+    title: stage.title,
+    description: `${stage.description}\n\nEstimated duration: ${stage.estimatedDuration}`,
+    milestones: stage.milestones.map((milestone) => {
+      const done = completedSet?.has(`${saved.id}:${stage.id}:milestone:${milestone.id}`) ?? false;
+      return {
+        id: milestone.id,
+        title: milestone.title,
+        skill: milestone.completionCriteria,
+        description: milestone.completionCriteria,
+        status: (done ? 'completed' : 'available') as 'completed' | 'available',
+        topics: stage.topics.map((topic) => topic.title),
+        project: stage.projects.map((project) => project.title).join('; ') || 'Complete the stage exercises',
+      };
+    }),
+  }));
+
+  const allMilestones = phases.flatMap((p) => p.milestones);
+  const completedCount = allMilestones.filter((m) => m.status === 'completed').length;
+  const progress = allMilestones.length > 0 ? Math.round((completedCount / allMilestones.length) * 100) : 0;
+
   return {
     id: saved.id,
     learnerId: saved.user_id ?? '',
@@ -59,22 +93,9 @@ function mapDbRoadmap(saved: DbRoadmapRow, hoursPerWeek = 10): LearningRoadmap {
     currentLevel: data.startingLevel as LearningRoadmap['currentLevel'],
     targetTimeline: data.overallEstimatedDuration,
     hoursPerWeek,
-    progress: 0,
+    progress,
     createdAt: saved.created_at ?? new Date().toISOString(),
-    phases: data.stages.map((stage) => ({
-      id: stage.id,
-      title: stage.title,
-      description: `${stage.description}\n\nEstimated duration: ${stage.estimatedDuration}`,
-      milestones: stage.milestones.map((milestone) => ({
-        id: milestone.id,
-        title: milestone.title,
-        skill: milestone.completionCriteria,
-        description: milestone.completionCriteria,
-        status: 'available',
-        topics: stage.topics.map((topic) => topic.title),
-        project: stage.projects.map((project) => project.title).join('; ') || 'Complete the stage exercises',
-      })),
-    })),
+    phases,
   };
 }
 
@@ -110,7 +131,13 @@ export async function getAiRoadmaps(): Promise<LearningRoadmap[]> {
     const { ok, data } = await fetchJsonWithTimeout('/api/ai/roadmaps', { method: 'GET' }, 15_000);
     if (!ok || !data || !Array.isArray(data.roadmaps)) return [];
     const rows = data.roadmaps as DbRoadmapRow[];
-    return rows.map((row) => mapDbRoadmap(row));
+    const progressRows = Array.isArray(data.progress) ? (data.progress as DbProgressRow[]) : [];
+    const completedSet = new Set(
+      progressRows
+        .filter((p) => p.completed)
+        .map((p) => `${p.roadmap_id}:${p.stage_id}:${p.item_type}:${p.item_id}`)
+    );
+    return rows.map((row) => mapDbRoadmap(row, 10, completedSet));
   } catch {
     return [];
   }

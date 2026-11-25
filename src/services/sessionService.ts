@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/client';
-import { createNotification } from '@/services/notificationService';
 import type { Session, SessionStatus } from '@/types';
 
 type DbSession = {
@@ -158,21 +157,6 @@ export async function requestSession(input: {
   }
 
   const session = mapSession(data as DbSession);
-
-  // Non-blocking notification to mentor
-  try {
-    const sender = input.learnerName ? `${input.learnerName} ` : 'A learner ';
-    await createNotification({
-      userId: input.mentorId,
-      type: 'mentorship_request',
-      title: 'New Mentorship Request',
-      message: `${sender}requested a session: "${input.title}".`,
-      entityId: session.id,
-    });
-  } catch {
-    // Non-blocking
-  }
-
   return session;
 }
 
@@ -192,24 +176,5 @@ export async function updateSessionStatus(
     throw new Error(error?.message || 'Failed to update session status.');
   }
 
-  const session = mapSession(data as DbSession);
-
-  if (status === 'accepted' || status === 'declined') {
-    try {
-      await createNotification({
-        userId: session.learnerId,
-        type: status === 'accepted' ? 'session_accepted' : 'session_declined',
-        title: status === 'accepted' ? 'Mentorship Request Accepted' : 'Mentorship Request Declined',
-        message:
-          status === 'accepted'
-            ? `Your mentorship request "${session.title}" was accepted.`
-            : `Your mentorship request "${session.title}" was declined.`,
-        entityId: session.id,
-      });
-    } catch {
-      // Non-blocking
-    }
-  }
-
-  return session;
+  return mapSession(data as DbSession);
 }
