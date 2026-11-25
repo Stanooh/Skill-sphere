@@ -24,6 +24,8 @@ import { getTalentProfileById, getTalentProfileByIdAsync } from '@/services/tale
 import { createEmployerContactRequest } from '@/services/contactRequestService';
 import { getAcceptedRecommendationsForStudent } from '@/services/recommendationService';
 import { getUserById, getMentorProfile, getRoadmap } from '@/services/dataService';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import type { SkillLevel, TalentProfile, StudentRecommendation } from '@/types';
 
 const levelColors: Record<SkillLevel, 'gray' | 'green' | 'amber' | 'brand'> = {
@@ -56,11 +58,17 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
     };
   }, [studentId]);
 
+  const { user } = useAuth();
+  const { show } = useToast();
   const [contactOpen, setContactOpen] = useState(false);
   const [contactSent, setContactSent] = useState(false);
-  const [employerName, setEmployerName] = useState('');
-  const [employerEmail, setEmployerEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [employerName, setEmployerName] = useState(user?.name ?? '');
+  const [employerEmail, setEmployerEmail] = useState(user?.email ?? '');
+  const [employerRole, setEmployerRole] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [reason, setReason] = useState('Employment opportunity');
   const [message, setMessage] = useState('');
 
   if (loading) {
@@ -99,27 +107,44 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
 
   const handleContact = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!employerName.trim() || !employerEmail.trim() || !companyName.trim() || !message.trim()) {
+      setContactError('Please fill in all required fields.');
       return;
     }
 
-    await createEmployerContactRequest({
-      learnerId: studentId,
-      employerName: employerName.trim(),
-      employerEmail: employerEmail.trim(),
-      companyName: companyName.trim(),
-      message: message.trim(),
-    });
-
-    setContactSent(true);
+    setSubmitting(true);
+    setContactError(null);
+    try {
+      await createEmployerContactRequest({
+        learnerId: studentId,
+        employerName: employerName.trim(),
+        employerEmail: employerEmail.trim(),
+        employerRole: employerRole.trim(),
+        companyName: companyName.trim(),
+        reason: reason.trim(),
+        message: message.trim(),
+      });
+      setContactSent(true);
+      show('Contact request sent!', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not send contact request.';
+      setContactError(msg);
+      show(msg, 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const closeContact = () => {
     setContactOpen(false);
     setContactSent(false);
-    setEmployerName('');
-    setEmployerEmail('');
+    setContactError(null);
+    setEmployerName(user?.name ?? '');
+    setEmployerEmail(user?.email ?? '');
+    setEmployerRole('');
     setCompanyName('');
+    setReason('Employment opportunity');
     setMessage('');
   };
 
@@ -418,38 +443,65 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
               </div>
             </div>
 
-            <div>
-              <label className="label">Your Name</label>
-              <input
-                className="input"
-                placeholder="e.g. Sarah Jenkins"
-                value={employerName}
-                onChange={(e) => setEmployerName(e.target.value)}
-                required
-              />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Your Name</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Sarah Jenkins"
+                  value={employerName}
+                  onChange={(e) => setEmployerName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Your Role / Position</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Tech Recruiter"
+                  value={employerRole}
+                  onChange={(e) => setEmployerRole(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Company / Organization</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Stripe, Flutterwave, TechCorp"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Work Email</label>
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="e.g. sarah@company.com"
+                  value={employerEmail}
+                  onChange={(e) => setEmployerEmail(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             <div>
-              <label className="label">Company / Organization</label>
-              <input
+              <label className="label">Reason for Reaching Out</label>
+              <select
                 className="input"
-                placeholder="e.g. Stripe, Flutterwave, TechCorp"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label">Work Email</label>
-              <input
-                className="input"
-                type="email"
-                placeholder="e.g. sarah@company.com"
-                value={employerEmail}
-                onChange={(e) => setEmployerEmail(e.target.value)}
-                required
-              />
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              >
+                <option value="a potential employment opportunity">Employment Opportunity</option>
+                <option value="an internship or apprenticeship">Internship / Apprenticeship</option>
+                <option value="a freelance or contract project">Freelance / Contract Project</option>
+                <option value="a technical interview or screening">Technical Interview</option>
+              </select>
             </div>
 
             <div>
@@ -463,12 +515,16 @@ export function TalentProfilePage({ studentId }: { studentId: string }) {
               />
             </div>
 
+            {contactError && (
+              <p className="text-sm text-red-400">{contactError}</p>
+            )}
+
             <div className="flex gap-3 pt-2">
-              <Button type="button" variant="secondary" onClick={closeContact}>
+              <Button type="button" variant="secondary" disabled={submitting} onClick={closeContact}>
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1">
-                Send Candidate Inquiry <Sparkles className="w-4 h-4 ml-1" />
+              <Button type="submit" disabled={submitting} className="flex-1">
+                {submitting ? 'Sending...' : 'Send Candidate Inquiry'} <Sparkles className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </form>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui';
 import { Badge } from '@/components/ui/Badge';
 import { MentorWorkshopForm } from '@/components/workshops/MentorWorkshopForm';
+import { WorkshopCoverImage } from '@/components/workshops/WorkshopCoverImage';
 import { Plus, BookOpen, CalendarDays, Clock, Users, Pencil, Send, EyeOff, XCircle, Trash2 } from 'lucide-react';
 import { getSkills } from '@/services/dataService';
 import { getMentorWorkshops, removeMentorWorkshop, setMentorWorkshopStatus } from '@/services/workshopService';
@@ -121,37 +122,40 @@ export function MentorWorkshopsPage() {
             const skill = skills.find((s) => s.id === workshop.skillId);
             const badge = statusBadge[workshop.status];
             return (
-              <div key={workshop.id} className="card p-5 flex flex-col justify-between">
+              <div key={workshop.id} className="card group overflow-hidden flex flex-col justify-between">
                 <div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
-                      {skill && <Badge variant="brand">{skill.name}</Badge>}
-                      <Badge variant="outline">{workshop.format === 'in_person' ? 'In person' : 'Online'}</Badge>
+                  <WorkshopCoverImage src={workshop.coverImage} alt={workshop.title} />
+                  <div className="p-5 pb-0">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                        {skill && <Badge variant="brand">{skill.name}</Badge>}
+                        <Badge variant="outline">{workshop.format === 'in_person' ? 'In person' : 'Online'}</Badge>
+                      </div>
                     </div>
-                  </div>
 
-                  <h3 className="font-semibold text-ink text-lg mb-1">{workshop.title}</h3>
-                  <p className="text-sm text-ink-400 line-clamp-2 mb-4">{workshop.description}</p>
+                    <h3 className="font-semibold text-ink text-lg mb-1">{workshop.title}</h3>
+                    <p className="text-sm text-ink-400 line-clamp-2 mb-4">{workshop.description}</p>
 
-                  <div className="space-y-1.5 text-xs text-ink-400 mb-4">
-                    <div className="flex items-center gap-2">
-                      <CalendarDays className="h-3.5 w-3.5 text-ink-300" />
-                      <span>{new Date(workshop.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      {workshop.startTime && <span>{workshop.startTime}</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-3.5 w-3.5 text-ink-300" />
-                      <span>{workshop.durationMinutes} minutes</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-3.5 w-3.5 text-ink-300" />
-                      <span>{workshop.registeredLearnerIds.length} / {workshop.capacity} enrolled</span>
+                    <div className="space-y-1.5 text-xs text-ink-400 mb-4">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="h-3.5 w-3.5 text-ink-300" />
+                        <span>{new Date(workshop.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        {workshop.startTime && <span>{workshop.startTime}</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5 text-ink-300" />
+                        <span>{workshop.durationMinutes} minutes</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 text-ink-300" />
+                        <span>{workshop.registeredLearnerIds.length} / {workshop.capacity} enrolled</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-ink-100">
+                <div className="flex flex-wrap items-center gap-2 p-5 pt-3 border-t border-ink-100">
                   <Button variant="secondary" size="sm" onClick={() => openEdit(workshop)} className="gap-1">
                     <Pencil className="h-3.5 w-3.5" />
                     Edit

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { WorkshopCoverImage, isValidImageUrl } from '@/components/workshops/WorkshopCoverImage';
 import { getSkills } from '@/services/dataService';
 import { saveMentorWorkshop, setMentorWorkshopStatus, type WorkshopInput } from '@/services/workshopService';
 import type { Workshop, WorkshopFormat } from '@/types';
@@ -72,6 +73,9 @@ function validate(form: FormState): string | null {
   }
   if (form.format === 'in_person' && !form.location.trim()) {
     return 'Add a physical location for an in-person workshop.';
+  }
+  if (form.coverImage.trim() && !isValidImageUrl(form.coverImage)) {
+    return 'Cover image URL must start with https://, http://, or /.';
   }
   return null;
 }
@@ -146,6 +150,11 @@ function MentorWorkshopFormFields({ mentorId, open, workshop, onClose, onSaved }
         <Input label="Workshop title" value={form.title} onChange={update('title')} placeholder="Advanced React Patterns Workshop" />
         <Textarea label="Description" rows={3} value={form.description} onChange={update('description')} placeholder="Describe what learners will gain from this workshop..." />
         <Input label="Cover image URL" value={form.coverImage} onChange={update('coverImage')} placeholder="https://..." />
+        {form.coverImage.trim() && (
+          <div className="rounded-xl overflow-hidden border border-ink-200">
+            <WorkshopCoverImage src={form.coverImage} alt="Workshop cover preview" />
+          </div>
+        )}
         <Select label="Category or skill" value={form.skillId} onChange={update('skillId')}>
           <option value="">Select a skill</option>
           {skills.map((s) => (

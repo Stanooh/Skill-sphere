@@ -33,7 +33,9 @@ import {
 } from '@/services/recommendationService';
 import {
   getEmployerContactRequestsForLearner,
-} from '@/services/talentService';
+  replyToContactRequest,
+  updateContactRequestStatus,
+} from '@/services/contactRequestService';
 import { deleteLearnerAccount } from '@/services/accountService';
 import { DeleteAccountDialog } from '@/components/account/DeleteAccountDialog';
 import { createClient } from '@/lib/supabase/client';
@@ -48,6 +50,9 @@ export function LearnerProfilePage() {
   const [step, setStep] = useState(0);
   const [saved, setSaved] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   const profile = user ? getLearnerProfile(user.id) : undefined;
   const skills = getSkills();
@@ -599,12 +604,12 @@ export function LearnerProfilePage() {
 
         {/* Employer Inquiries / Contact Requests */}
         {contactRequests.length > 0 && (
-          <div className="card p-6 space-y-4 border border-ink-200">
+          <div id="inquiries" className="card p-6 space-y-4 border border-ink-200">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-ink">Employer Inquiries</h3>
                 <p className="text-sm text-ink-400 mt-0.5">
-                  Messages received from employers who discovered your talent profile.
+                  Messages received from employers who discovered your recommended talent profile.
                 </p>
               </div>
               <span className="badge bg-brand-900 text-brand-200">
@@ -614,21 +619,119 @@ export function LearnerProfilePage() {
 
             <div className="space-y-3">
               {contactRequests.map((req) => (
-                <div key={req.id} className="p-4 rounded-xl bg-ink-100 border border-ink-200 space-y-2">
-                  <div className="flex items-center justify-between">
+                <div key={req.id} className="p-4 rounded-xl bg-ink-100 border border-ink-200 space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-ink flex items-center gap-1.5">
                         <Building className="w-3.5 h-3.5 text-brand" /> {req.companyName}
+                        {req.employerRole ? <span className="text-xs font-normal text-ink-400">• {req.employerRole}</span> : null}
                       </p>
-                      <p className="text-xs text-ink-400">
-                        From: {req.employerName} ({req.employerEmail}) • {new Date(req.createdAt).toLocaleDateString()}
+                      <p className="text-xs text-ink-400 mt-0.5">
+                        From: {req.employerName} ({req.employerEmail}) • {new Date(req.createdAt).toLocaleString()}
                       </p>
+                      {req.reason && (
+                        <p className="text-xs text-brand mt-0.5">Reason: {req.reason}</p>
+                      )}
                     </div>
                     <span className="badge bg-ink-200 text-ink-400 text-xs uppercase">{req.status}</span>
                   </div>
+
                   <p className="text-sm text-ink-400 bg-ink-50/50 p-2.5 rounded-lg border border-ink-200">
                     &quot;{req.message}&quot;
                   </p>
+
+                  {req.learnerReply && (
+                    <div className="p-2.5 rounded-lg bg-brand-50/20 border border-brand/30 text-xs text-ink-400">
+                      <span className="font-semibold text-ink">Your reply:</span> {req.learnerReply}
+                    </div>
+                  )}
+
+                  {replyingToId === req.id ? (
+                    <div className="space-y-2 pt-1">
+                      <textarea
+                        className="input min-h-20 text-sm"
+                        placeholder={`Write a reply to ${req.employerName}...`}
+                        value={replyDraft}
+                        onChange={(e) => setReplyDraft(e.target.value)}
+                        disabled={sendingReply}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          disabled={sendingReply || !replyDraft.trim()}
+                          onClick={async () => {
+                            setSendingReply(true);
+                            try {
+                              const updated = await replyToContactRequest({
+                                requestId: req.id,
+                                learnerId: user.id,
+                                replyMessage: replyDraft,
+                                senderUserId: req.senderUserId,
+                              });
+                              setContactRequests((prev) => prev.map((item) => (item.id === req.id ? updated : item)));
+                              setReplyingToId(null);
+                              setReplyDraft('');
+                              show('Reply sent!', 'success');
+                            } catch (err) {
+                              show(err instanceof Error ? err.message : 'Failed to send reply.', 'error');
+                            } finally {
+                              setSendingReply(false);
+                            }
+                          }}
+                        >
+                          {sendingReply ? 'Sending...' : 'Send Reply'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={sendingReply}
+                          onClick={() => {
+                            setReplyingToId(null);
+                            setReplyDraft('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {req.status !== 'closed' && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setReplyingToId(req.id);
+                            setReplyDraft('');
+                          }}
+                        >
+                          Reply / Contact Back
+                        </Button>
+                      )}
+                      <a
+                        href={`mailto:${req.employerEmail}?subject=${encodeURIComponent(`Re: ${req.companyName} Opportunity via SkillSphere`)}`}
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg border border-ink-200 text-xs font-medium text-ink-500 hover:text-ink hover:border-ink-300"
+                      >
+                        Email {req.employerName.split(' ')[0]}
+                      </a>
+                      {req.status !== 'closed' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            try {
+                              const updated = await updateContactRequestStatus(req.id, 'closed');
+                              setContactRequests((prev) => prev.map((item) => (item.id === req.id ? updated : item)));
+                              show('Inquiry marked closed.', 'info');
+                            } catch (err) {
+                              show(err instanceof Error ? err.message : 'Could not update status.', 'error');
+                            }
+                          }}
+                        >
+                          Close
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

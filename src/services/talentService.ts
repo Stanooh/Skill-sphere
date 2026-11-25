@@ -65,19 +65,53 @@ export async function fetchTalentProfiles(): Promise<TalentProfile[]> {
   const userIds = learnerRows.map((r) => r.user_id);
   const allSkillIds = Array.from(new Set(learnerRows.flatMap((r) => r.skill_ids || [])));
 
-  const [{ data: profilesData }, { data: skillsData }] = await Promise.all([
+  const [{ data: profilesData }, { data: skillsData }, { data: recsData }] = await Promise.all([
     supabase.from('profiles').select('*').in('id', userIds),
     allSkillIds.length > 0 ? supabase.from('skills').select('*').in('id', allSkillIds) : Promise.resolve({ data: [] }),
+    supabase
+      .from('student_recommendations')
+      .select('student_id, mentor_id')
+      .in('student_id', userIds)
+      .eq('student_approval_status', 'accepted')
+      .neq('admin_action', 'hidden'),
   ]);
+
+  const recsList = (recsData as Array<{ student_id: string; mentor_id: string }> | null) ?? [];
+  const mentorIds = Array.from(new Set(recsList.map((r) => r.mentor_id)));
+  const [{ data: mentorUsersData }, { data: mentorProfilesData }] =
+    mentorIds.length > 0
+      ? await Promise.all([
+          supabase.from('profiles').select('id, full_name, email, avatar_url, created_at').in('id', mentorIds),
+          supabase.from('mentor_profiles').select('user_id, professional_title, bio, experience_years, availability, activated').in('user_id', mentorIds),
+        ])
+      : [{ data: [] }, { data: [] }];
+
+  const mentorUserMap = new Map((mentorUsersData as DbProfile[] || []).map((p) => [p.id, p]));
+  const mentorProfMap = new Map(
+    ((mentorProfilesData as Array<{ user_id: string; professional_title: string | null; bio: string | null; experience_years: number | null; availability: string | null; activated: boolean }>) || []).map((mp) => [mp.user_id, mp])
+  );
+
+  const recsByStudent = new Map<string, string[]>();
+  for (const r of recsList) {
+    const existing = recsByStudent.get(r.student_id) ?? [];
+    if (!existing.includes(r.mentor_id)) existing.push(r.mentor_id);
+    recsByStudent.set(r.student_id, existing);
+  }
 
   const profileMap = new Map((profilesData as DbProfile[] || []).map((p) => [p.id, p]));
   const skillMap = new Map((skillsData as DbSkill[] || []).map((s) => [s.id, s]));
 
   const profiles: TalentProfile[] = [];
+  const seenUserIds = new Set<string>();
 
   for (const row of learnerRows) {
+    if (seenUserIds.has(row.user_id)) continue;
+    const recMentorIds = recsByStudent.get(row.user_id) ?? [];
+    if (recMentorIds.length === 0) continue;
+
     const userRow = profileMap.get(row.user_id);
     if (!userRow) continue;
+    seenUserIds.add(row.user_id);
 
     const user: User = {
       id: userRow.id,
@@ -112,11 +146,47 @@ export async function fetchTalentProfiles(): Promise<TalentProfile[]> {
         category: s.category,
       }));
 
+    const approvedMentors = recMentorIds
+      .map((mid) => {
+        const mu = mentorUserMap.get(mid);
+        const mp = mentorProfMap.get(mid);
+        if (!mu) return null;
+        return {
+          user: {
+            id: mu.id,
+            name: mu.full_name || 'Approved Mentor',
+            email: mu.email || '',
+            role: 'mentor' as const,
+            avatar: mu.avatar_url || undefined,
+            createdAt: mu.created_at || new Date().toISOString(),
+          },
+          profile: {
+            id: mid,
+            userId: mid,
+            bio: mp?.bio || '',
+            professionalTitle: mp?.professional_title || 'Mentor',
+            location: '',
+            experienceYears: mp?.experience_years || 0,
+            education: '',
+            certifications: [],
+            mentorshipAreas: [],
+            skillIds: [],
+            availability: (mp?.availability as 'available' | 'limited' | 'unavailable') || 'available',
+            rating: 0,
+            reviewCount: 0,
+            profileComplete: true,
+            activated: mp?.activated ?? true,
+          },
+          skills: [],
+        };
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+
     profiles.push({
       user,
       profile: learnerProfile,
       skills: learnerSkills,
-      approvedMentors: [],
+      approvedMentors,
     });
   }
 
@@ -151,12 +221,18 @@ export async function getTalentProfileByIdAsync(userId: string): Promise<TalentP
   if (!lpData) return null;
 
   const row = lpData as DbLearnerProfile;
-  const [{ data: userRow }, { data: skillsData }] = await Promise.all([
+  const [{ data: userRow }, { data: skillsData }, { data: recRows }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', userId).single(),
     row.skill_ids?.length ? supabase.from('skills').select('*').in('id', row.skill_ids) : Promise.resolve({ data: [] }),
+    supabase
+      .from('student_recommendations')
+      .select('id, mentor_id')
+      .eq('student_id', userId)
+      .eq('student_approval_status', 'accepted')
+      .neq('admin_action', 'hidden'),
   ]);
 
-  if (!userRow) return null;
+  if (!userRow || !recRows || recRows.length === 0) return null;
 
   return {
     user: {

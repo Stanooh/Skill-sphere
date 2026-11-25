@@ -21,11 +21,21 @@ type DbWorkshop = {
   workshop_registrations?: Array<{ learner_id: string }>;
 };
 
-function mapWorkshop(row: DbWorkshop): Workshop {
+type MentorMeta = {
+  name: string;
+  avatar?: string;
+  title?: string;
+};
+
+function mapWorkshop(row: DbWorkshop, mentorMap?: Map<string, MentorMeta>): Workshop {
   const regIds = (row.workshop_registrations ?? []).map((r) => r.learner_id);
+  const mentor = mentorMap?.get(row.mentor_id);
   return {
     id: row.id,
     mentorId: row.mentor_id,
+    mentorName: mentor?.name,
+    mentorAvatar: mentor?.avatar,
+    mentorTitle: mentor?.title,
     skillId: row.skill_id ?? '',
     title: row.title,
     description: row.description,
@@ -42,6 +52,37 @@ function mapWorkshop(row: DbWorkshop): Workshop {
   };
 }
 
+async function enrichWorkshops(rows: DbWorkshop[]): Promise<Workshop[]> {
+  if (rows.length === 0) return [];
+  const mentorIds = Array.from(new Set(rows.map((r) => r.mentor_id)));
+  const supabase = createClient();
+
+  const [{ data: profiles }, { data: mentorProfiles }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, avatar_url').in('id', mentorIds),
+    supabase.from('mentor_profiles').select('user_id, professional_title, avatar_url').in('user_id', mentorIds),
+  ]);
+
+  const titleById = new Map<string, { title?: string; avatar?: string }>();
+  for (const mp of (mentorProfiles ?? []) as Array<{ user_id: string; professional_title: string | null; avatar_url: string | null }>) {
+    titleById.set(mp.user_id, {
+      title: mp.professional_title || undefined,
+      avatar: mp.avatar_url || undefined,
+    });
+  }
+
+  const mentorMap = new Map<string, MentorMeta>();
+  for (const p of (profiles ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>) {
+    const mp = titleById.get(p.id);
+    mentorMap.set(p.id, {
+      name: p.full_name || 'SkillSphere Mentor',
+      avatar: mp?.avatar || p.avatar_url || undefined,
+      title: mp?.title,
+    });
+  }
+
+  return rows.map((row) => mapWorkshop(row, mentorMap));
+}
+
 export async function getMentorWorkshops(mentorId: string): Promise<Workshop[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -54,7 +95,7 @@ export async function getMentorWorkshops(mentorId: string): Promise<Workshop[]> 
     console.error('[workshopService] getMentorWorkshops failed', error);
     return [];
   }
-  return (data as DbWorkshop[]).map(mapWorkshop);
+  return enrichWorkshops(data as DbWorkshop[]);
 }
 
 export async function getLearnerWorkshops(): Promise<Workshop[]> {
@@ -69,7 +110,7 @@ export async function getLearnerWorkshops(): Promise<Workshop[]> {
     console.error('[workshopService] getLearnerWorkshops failed', error);
     return [];
   }
-  return (data as DbWorkshop[]).map(mapWorkshop);
+  return enrichWorkshops(data as DbWorkshop[]);
 }
 
 export async function getAllWorkshops(): Promise<Workshop[]> {
@@ -83,7 +124,7 @@ export async function getAllWorkshops(): Promise<Workshop[]> {
     console.error('[workshopService] getAllWorkshops failed', error);
     return [];
   }
-  return (data as DbWorkshop[]).map(mapWorkshop);
+  return enrichWorkshops(data as DbWorkshop[]);
 }
 
 export async function getWorkshopById(workshopId: string): Promise<Workshop | null> {
@@ -97,7 +138,8 @@ export async function getWorkshopById(workshopId: string): Promise<Workshop | nu
   if (error || !data) {
     return null;
   }
-  return mapWorkshop(data as DbWorkshop);
+  const enriched = await enrichWorkshops([data as DbWorkshop]);
+  return enriched[0] ?? null;
 }
 
 export async function saveMentorWorkshop(

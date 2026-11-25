@@ -140,6 +140,9 @@ export interface Session {
 export interface Workshop {
   id: string;
   mentorId: string;
+  mentorName?: string;
+  mentorAvatar?: string;
+  mentorTitle?: string;
   title: string;
   description: string;
   skillId: string;
@@ -217,9 +220,15 @@ export interface EmployerContactRequest {
   learnerId: string;
   employerName: string;
   employerEmail: string;
+  employerRole?: string;
   companyName: string;
+  reason?: string;
   message: string;
-  status: 'pending' | 'accepted' | 'declined';
+  senderUserId?: string;
+  conversationId?: string;
+  learnerReply?: string;
+  respondedAt?: string;
+  status: 'pending' | 'responded' | 'closed' | 'accepted' | 'declined';
   createdAt: string;
 }
 

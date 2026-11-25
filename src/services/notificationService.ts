@@ -147,6 +147,10 @@ export function getNotificationHref(
       return role === 'mentor' ? '/mentor/profile' : '/learner/mentors';
     case 'workshop_update':
       return `${base}/workshops`;
+    case 'employer_contact':
+      return '/learner/profile#inquiries';
+    case 'contact_reply':
+      return role === 'learner' ? '/learner/messages' : role === 'mentor' ? '/mentor/messages' : '/notifications';
     default:
       return '/notifications';
   }
