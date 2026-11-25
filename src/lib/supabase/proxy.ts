@@ -52,6 +52,7 @@ export async function updateSession(request: NextRequest) {
 
   // Protected paths that require authentication and email verification
   const isProtectedPath =
+    path === '/notifications' ||
     path === '/learner' ||
     path.startsWith('/learner/') ||
     path === '/mentor' ||

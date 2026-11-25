@@ -131,27 +131,81 @@ export function getNotificationHref(
   role: 'learner' | 'mentor' | 'admin'
 ): string {
   const base = role === 'learner' ? '/learner' : role === 'mentor' ? '/mentor' : '/admin';
+  const entityId = notification.relatedEntityId;
+
   switch (notification.type) {
     case 'message_received':
-      return notification.relatedEntityId
-        ? `${base}/messages?conversationId=${notification.relatedEntityId}`
+      return entityId
+        ? `${base}/messages?conversationId=${encodeURIComponent(entityId)}`
         : `${base}/messages`;
     case 'mentorship_request':
     case 'session_cancelled':
-      return role === 'mentor' ? '/mentor/requests' : '/learner/sessions';
+      if (role === 'mentor') {
+        return entityId ? `/mentor/requests?requestId=${encodeURIComponent(entityId)}` : '/mentor/requests';
+      }
+      return entityId ? `/learner/sessions?sessionId=${encodeURIComponent(entityId)}` : '/learner/sessions';
     case 'session_accepted':
     case 'session_declined':
     case 'session_completed':
-      return role === 'learner' ? '/learner/sessions' : '/mentor/sessions';
+      if (role === 'learner') {
+        return entityId ? `/learner/sessions?sessionId=${encodeURIComponent(entityId)}` : '/learner/sessions';
+      }
+      return entityId ? `/mentor/sessions?sessionId=${encodeURIComponent(entityId)}` : '/mentor/sessions';
     case 'mentor_review_received':
-      return role === 'mentor' ? '/mentor/profile' : '/learner/mentors';
+      return role === 'mentor' ? '/mentor/profile' : entityId ? `/learner/mentors/${encodeURIComponent(entityId)}` : '/learner/mentors';
     case 'workshop_update':
-      return `${base}/workshops`;
+    case 'workshop_published':
+    case 'workshop_registration':
+      return role === 'admin' ? '/admin/workshops' : `${base}/workshops`;
+    case 'recommendation_received':
+      return role === 'learner' ? '/learner/profile#recommendations' : '/mentor/student-recommendations';
     case 'employer_contact':
       return '/learner/profile#inquiries';
     case 'contact_reply':
-      return role === 'learner' ? '/learner/messages' : role === 'mentor' ? '/mentor/messages' : '/notifications';
+      return role === 'admin' ? '/notifications' : `${base}/messages`;
+    case 'mentor_approved':
+    case 'competency_verified':
+    case 'identity_verification':
+      return role === 'mentor' ? '/mentor/verification' : '/learner';
+    case 'application_submitted':
+      return role === 'mentor' ? '/mentor/apply' : '/admin/verification';
+    case 'application_review_required':
+      return '/admin/verification';
+    case 'roadmap_update':
+      return '/learner/roadmap';
+    case 'progress_update':
+      return '/learner/progress';
+    case 'career_advisor_update':
+      return '/learner/career-advisor';
     default:
       return '/notifications';
   }
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  mentorship_request: 'Mentorship Request',
+  session_accepted: 'Session Accepted',
+  session_declined: 'Session Declined',
+  session_cancelled: 'Request Cancelled',
+  session_completed: 'Session Completed',
+  message_received: 'Message',
+  mentor_review_received: 'Rating & Review',
+  workshop_update: 'Workshop',
+  workshop_published: 'Workshop',
+  workshop_registration: 'Workshop',
+  recommendation_received: 'Recommendation',
+  employer_contact: 'Opportunity',
+  contact_reply: 'Inquiry Reply',
+  mentor_approved: 'Verification',
+  competency_verified: 'Verification',
+  identity_verification: 'Verification',
+  application_submitted: 'Application',
+  application_review_required: 'Admin Review',
+  roadmap_update: 'Roadmap',
+  progress_update: 'Progress',
+  career_advisor_update: 'Career Advisor',
+};
+
+export function getNotificationTypeLabel(type: string): string {
+  return TYPE_LABELS[type] ?? 'Update';
 }

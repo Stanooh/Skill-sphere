@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState, Tabs } from '@/components/ui';
 import { CalendarDays, Clock, Video, X } from 'lucide-react';
-import { getSessionsForLearner, updateSessionStatus } from '@/services/sessionService';
+import { getSessionsForLearner, subscribeToSessions, updateSessionStatus } from '@/services/sessionService';
 import type { Session, SessionStatus } from '@/types';
 import Link from 'next/link';
 
@@ -21,10 +22,13 @@ const statusConfig: Record<SessionStatus, { label: string; variant: 'amber' | 'g
   cancelled: { label: 'Cancelled', variant: 'red' },
 };
 
-export function LearnerSessionsPage() {
+function LearnerSessionsInner() {
   const { user } = useAuth();
   const { show } = useToast();
-  const [tab, setTab] = useState('upcoming');
+  const searchParams = useSearchParams();
+  const targetSessionId = searchParams.get('sessionId');
+
+  const [tabOverride, setTabOverride] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -37,15 +41,21 @@ export function LearnerSessionsPage() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     let active = true;
     const run = async () => {
       if (active) await loadSessions();
     };
     void run();
+
+    const unsubscribe = subscribeToSessions('learner_id', user.id, () => {
+      void loadSessions();
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
-  }, [loadSessions]);
+  }, [user, loadSessions]);
 
   if (!user) return null;
 
@@ -67,11 +77,30 @@ export function LearnerSessionsPage() {
   const completed = sessions.filter((s) => s.status === 'completed');
   const cancelled = sessions.filter((s) => s.status === 'declined' || s.status === 'cancelled');
 
+  const targetSession = targetSessionId ? sessions.find((s) => s.id === targetSessionId) ?? null : null;
+  const inferredTab = targetSession
+    ? targetSession.status === 'completed'
+      ? 'completed'
+      : targetSession.status === 'declined' || targetSession.status === 'cancelled'
+      ? 'cancelled'
+      : 'upcoming'
+    : 'upcoming';
+
+  const tab = tabOverride ?? inferredTab;
   const displayed = tab === 'upcoming' ? upcoming : tab === 'completed' ? completed : cancelled;
 
   return (
     <DashboardLayout>
       <PageHeader title="My Sessions" description="View and manage your mentorship requests and sessions." />
+
+      {!loading && targetSessionId && !targetSession && (
+        <div className="card p-4 mb-6 border-brand/30 bg-brand-50/20">
+          <p className="text-sm text-ink-500">
+            The referenced mentorship session could not be found or is no longer available.
+          </p>
+        </div>
+      )}
+
       <div className="mb-6 overflow-x-auto">
         <Tabs
           tabs={[
@@ -80,7 +109,7 @@ export function LearnerSessionsPage() {
             { id: 'cancelled', label: `Declined / Cancelled (${cancelled.length})` },
           ]}
           active={tab}
-          onChange={setTab}
+          onChange={setTabOverride}
         />
       </div>
 
@@ -100,8 +129,14 @@ export function LearnerSessionsPage() {
           {displayed.map((session) => {
             const mentorName = session.mentorName || 'SkillSphere Mentor';
             const cfg = statusConfig[session.status];
+            const isHighlighted = targetSessionId === session.id;
             return (
-              <div key={session.id} className="card p-5">
+              <div
+                key={session.id}
+                className={`card p-5 transition-all ${
+                  isHighlighted ? 'ring-2 ring-brand border-brand' : ''
+                }`}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1 min-w-0">
                     <Link href={`/learner/mentors/${session.mentorId}`} className="shrink-0">
@@ -166,5 +201,13 @@ export function LearnerSessionsPage() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+export function LearnerSessionsPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="card p-12 text-center text-sm text-ink-300">Loading sessions...</div></DashboardLayout>}>
+      <LearnerSessionsInner />
+    </Suspense>
   );
 }

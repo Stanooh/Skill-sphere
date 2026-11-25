@@ -173,16 +173,6 @@ export function createRecommendation(
         if (inserted && !error) {
           recCache.delete(tempId);
           recCache.set(inserted.id, mapRec(inserted as DbRecommendation));
-
-          // Notify student
-          await supabase.from('notifications').insert({
-            user_id: data.studentId,
-            notification_type: 'recommendation_received',
-            title: 'New Mentor Recommendation',
-            message: 'A mentor has written a professional recommendation for your profile. Review and accept it to display it publicly.',
-            event_key: `rec_received_${inserted.id}`,
-            read: false,
-          });
         }
       } catch (err) {
         console.error('[recommendationService] createRecommendation error:', err);

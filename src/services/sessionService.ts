@@ -178,3 +178,28 @@ export async function updateSessionStatus(
 
   return mapSession(data as DbSession);
 }
+
+export function subscribeToSessions(
+  filterColumn: 'mentor_id' | 'learner_id',
+  userId: string,
+  onChange: () => void
+): () => void {
+  const supabase = createClient();
+  const channel = supabase
+    .channel(`sessions:${filterColumn}:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'sessions',
+        filter: `${filterColumn}=eq.${userId}`,
+      },
+      onChange
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}

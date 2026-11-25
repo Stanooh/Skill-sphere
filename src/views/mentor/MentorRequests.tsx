@@ -1,19 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { DashboardLayout, PageHeader } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui';
 import { Check, X, ClipboardList, CalendarDays, Clock } from 'lucide-react';
-import { getSessionsForMentor, updateSessionStatus } from '@/services/sessionService';
+import { getSessionsForMentor, subscribeToSessions, updateSessionStatus } from '@/services/sessionService';
 import type { Session } from '@/types';
 
-export function MentorRequestsPage() {
+function MentorRequestsInner() {
   const { user } = useAuth();
   const { show } = useToast();
+  const searchParams = useSearchParams();
+  const targetRequestId = searchParams.get('requestId');
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -26,19 +31,28 @@ export function MentorRequestsPage() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     let active = true;
     const run = async () => {
       if (active) await loadRequests();
     };
     void run();
+
+    const unsubscribe = subscribeToSessions('mentor_id', user.id, () => {
+      void loadRequests();
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
-  }, [loadRequests]);
+  }, [user, loadRequests]);
 
   if (!user) return null;
 
   const pending = sessions.filter((s) => s.status === 'pending');
+  const referencedSession = targetRequestId
+    ? sessions.find((s) => s.id === targetRequestId) ?? null
+    : null;
 
   const handleAction = async (session: Session, action: 'accepted' | 'declined') => {
     setActingId(session.id);
@@ -58,6 +72,17 @@ export function MentorRequestsPage() {
     <DashboardLayout>
       <PageHeader title="Mentorship Requests" description="Review and respond to learner mentorship requests." />
 
+      {!loading && targetRequestId && (!referencedSession || referencedSession.status !== 'pending') && (
+        <div className="card p-4 mb-6 border-brand/30 bg-brand-50/20 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-ink-500">
+            {!referencedSession
+              ? 'The referenced mentorship request could not be found or is no longer available.'
+              : `Referenced request "${referencedSession.title}" is already ${referencedSession.status}.`}
+          </p>
+          {referencedSession && <Badge variant="gray">{referencedSession.status}</Badge>}
+        </div>
+      )}
+
       {loading ? (
         <div className="card p-12 text-center text-sm text-ink-300">Loading requests...</div>
       ) : pending.length === 0 ? (
@@ -74,13 +99,22 @@ export function MentorRequestsPage() {
           {pending.map((session) => {
             const learnerName = session.learnerName || 'SkillSphere Learner';
             const isActing = actingId === session.id;
+            const isHighlighted = targetRequestId === session.id;
             return (
-              <div key={session.id} className="card p-5">
+              <div
+                key={session.id}
+                className={`card p-5 transition-all ${
+                  isHighlighted ? 'ring-2 ring-brand border-brand' : ''
+                }`}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1 min-w-0">
                     <Avatar src={session.learnerAvatar} name={learnerName} size="md" />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-ink">{session.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-ink">{session.title}</h3>
+                        {isHighlighted && <Badge variant="brand">Selected</Badge>}
+                      </div>
                       {session.description && (
                         <p className="text-sm text-ink-400 mt-0.5 break-words">{session.description}</p>
                       )}
@@ -115,5 +149,13 @@ export function MentorRequestsPage() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+export function MentorRequestsPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="card p-12 text-center text-sm text-ink-300">Loading requests...</div></DashboardLayout>}>
+      <MentorRequestsInner />
+    </Suspense>
   );
 }
